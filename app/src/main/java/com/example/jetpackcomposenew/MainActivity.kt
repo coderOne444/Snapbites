@@ -21,9 +21,21 @@ import androidx.compose.foundation.layout.Row
 import android.location.Geocoder
 import android.util.Log
 import java.util.Locale
-import android.net.Uri
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.platform.LocalContext
@@ -32,8 +44,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -50,29 +60,24 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberImagePainter
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.google.firebase.auth.FirebaseAuth
+
 
 class MainActivity : ComponentActivity() {
 
@@ -144,13 +149,22 @@ fun AppNavigation() {
                 OrderScreen()
             }
             composable("profile") {
-                ProfileScreen()
+                ProfileScreen(navController = navController)
             }
             composable("category/{category}") { backStackEntry ->
                 val category = backStackEntry.arguments?.getString("category")
                 if (category != null) {
                     CategoryScreen(category, navController)
                 }
+            }
+            composable("profile") {
+                ProfileScreen(navController = navController)
+            }
+            composable("signup") {
+                SignUpScreen(navController = navController)
+            }
+            composable("login") {
+                LoginScreen(navController = navController)
             }
         }
 
@@ -198,6 +212,34 @@ fun BottomNavBar(navController: NavController) {
     }
 }
 
+@Composable
+fun CategoryScreen(category: String, navController: NavController) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        // Display the category title
+        Text(
+            text = "$category Restaurants",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // List of dummy restaurants for the given category
+        LazyColumn {
+            items(5) { index ->
+                RestaurantItem(
+                    name = "$category Restaurant $index",
+                    onClick = {
+                        // Navigate to the details screen when a restaurant is clicked
+                        navController.navigate("details/$category Restaurant $index")
+                    }
+                )
+            }
+        }
+    }
+}
 
 
 @Composable
@@ -213,7 +255,7 @@ fun OrderScreen() {
 }
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(navController: NavController) {
     var name by remember { mutableStateOf("Jonny Kumar") }
     var email by remember { mutableStateOf("jonnykumar@example.com") }
     var imageUri by remember { mutableStateOf<Uri?>(null) } // For storing the profile image URI
@@ -236,6 +278,13 @@ fun ProfileScreen() {
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxSize()
         ) {
+            // Welcome Text
+            Text(
+                text = "Welcome to SnapBites!",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
             // Profile Image or Avatar
             Image(
                 painter = if (imageUri != null) {
@@ -286,9 +335,33 @@ fun ProfileScreen() {
             ) {
                 Text(text = "Save Changes")
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Sign Up Button
+            Button(
+                onClick = { navController.navigate("signup") },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F)),
+                modifier = Modifier
+                    .padding(bottom = 8.dp)
+            ) {
+                Text(text = "Sign Up")
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Log In Button
+            Button(
+                onClick = { navController.navigate("login") },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F)),
+                modifier = Modifier
+                    .padding(bottom = 8.dp)
+            ) {
+                Text(text = "Log In")
+            }
         }
     }
 }
+
 
 
 @Composable
@@ -381,8 +454,10 @@ fun SplashScreen(navController: NavController) {
     }
     // Navigate to home after a delay
     LaunchedEffect(Unit) {
-        delay(2000) // 2-second splash
-        navController.navigate("home")
+        delay(1000) // 1-second splash
+        navController.navigate("home") {
+            popUpTo("splash") { inclusive = true }  // Clears backstack
+        }
     }
 }
 
@@ -390,7 +465,8 @@ fun SplashScreen(navController: NavController) {
 fun HomeScreen(navController: NavController) {
     val context = LocalContext.current
     var address by remember { mutableStateOf("Fetching location...") }
-    var location by remember { mutableStateOf<Location?>(null) } // State to hold the location
+    var location by remember { mutableStateOf<Location?>(null) }
+    var locationError by remember { mutableStateOf<String?>(null) } // State for location errors
 
     // Request location permission and fetch address
     RequestLocationPermission(
@@ -399,57 +475,67 @@ fun HomeScreen(navController: NavController) {
             if (loc != null) {
                 Log.d("HomeScreen", "Location received: ${loc.latitude}, ${loc.longitude}")
                 location = loc
+                locationError = null // Reset error when location is received
             } else {
                 Log.d("HomeScreen", "Location is null")
+                locationError = "Unable to fetch location"
             }
+        },
+        onPermissionDenied = {
+            locationError = "Location permission denied"
         }
     )
 
-
-    // Use LaunchedEffect to fetch address when location is received
+    // Fetch address using Geocoder when location is updated
     LaunchedEffect(location) {
         location?.let {
             val geocoder = Geocoder(context, Locale.getDefault())
-            try {
+            address = try {
                 val addressList = withContext(Dispatchers.IO) {
                     geocoder.getFromLocation(it.latitude, it.longitude, 1)
                 }
-                if (addressList != null && addressList.isNotEmpty()) {
-                    address = addressList[0].getAddressLine(0)
+                if (!addressList.isNullOrEmpty()) {
+                    addressList[0].getAddressLine(0)
                 } else {
-                    address = "Address not found"
+                    "Address not found"
                 }
             } catch (e: Exception) {
-                address = "Error fetching address"
+                "Error fetching address"
             }
-        } ?: run {
-            address = "Unable to fetch location"
         }
     }
 
-    Scaffold(
-        content = { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                DeliveryHeader(address = address)
-                CouponBanner()
-
-                var searchText by remember { mutableStateOf("") }
-
-                // Search Bar
-                SearchBar(
-                    searchText = searchText,
-                    onSearchTextChanged = { newText -> searchText = newText }
-                )
-
-                FoodCategories(navController)
-                HighestRatingSection(searchText, navController)
-            }
+    // Check if there’s a location error, display LocationErrorState instead of main content
+    if (locationError != null) {
+        LocationErrorState(error = locationError!!) {
+            locationError = null // Reset the error and retry fetching location
+            location = null // Clear previous location
         }
-    )
+    } else {
+        Scaffold(
+            content = { paddingValues ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                ) {
+                    DeliveryHeader(address = address)
+                    CouponBanner()
+
+                    var searchText by remember { mutableStateOf("") }
+
+                    // Search Bar
+                    SearchBar(
+                        searchText = searchText,
+                        onSearchTextChanged = { newText -> searchText = newText }
+                    )
+
+                    FoodCategories(navController)
+                    HighestRatingSection(searchText, navController)
+                }
+            }
+        )
+    }
 }
 
 
@@ -519,59 +605,79 @@ fun HighestRatedItem(itemName: String, imageRes: Int, onClick: () -> Unit) {
     }
 }
 
-
 @Composable
 fun FoodCategories(navController: NavController) {
-    // Map of categories and their respective icons (replace with actual drawable resources)
     val categoryIcons = mapOf(
-        "Promo" to R.drawable.promocode1,     // Ensure these resources exist in your drawable folder
+        "Promo" to R.drawable.promocode1,
         "Taco" to R.drawable.taco_icon,
         "Drinks" to R.drawable.drinks_icon,
         "Meat" to R.drawable.meat_icon,
         "Sushi" to R.drawable.sushi_icon,
         "Pizza" to R.drawable.pizza
     )
-
-    // Check if any of the icons are missing, or use a default fallback
-    val defaultIcon = R.drawable.default_icon  // Ensure this default icon exists in your drawable folder
+    val defaultIcon = R.drawable.default_icon
 
     LazyRow(modifier = Modifier.padding(40.dp)) {
         items(categoryIcons.keys.toList()) { category ->
-            Column(
-                modifier = Modifier
-                    .padding(8.dp)
-                    .clickable {
-                        navController.navigate("category/$category")
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Safely load the category's icon, or use the default one if not available
-                val icon = categoryIcons[category] ?: defaultIcon
-                Image(
-                    painter = painterResource(id = icon),
-                    contentDescription = category,  // `category` is a String and will be passed here correctly
-                    modifier = Modifier.size(40.dp)  // Adjust the size as needed
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                // Display category name as text
-                Text(text = category, style = MaterialTheme.typography.bodySmall)  // `category` is a String
+            CategoryItem(category, categoryIcons[category] ?: defaultIcon) {
+                navController.navigate("category/$category")
             }
         }
     }
 }
 
+@Composable
+fun CategoryItem(category: String, iconRes: Int, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .padding(8.dp)
+            .clickable { onClick() },
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(
+            painter = painterResource(id = iconRes),
+            contentDescription = category,
+            modifier = Modifier.size(40.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = category, style = MaterialTheme.typography.bodySmall)
+    }
+}
 
 @Composable
-fun CategoryScreen(category: String, navController: NavController) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text(text = "$category Restaurants", style = MaterialTheme.typography.headlineSmall)
+fun CouponBanner() {
+    val isVisible by remember { mutableStateOf(true) }
 
-        // Placeholder content for restaurants
-        LazyColumn {
-            items(5) { index ->
-                RestaurantItem(name = "$category Restaurant $index") {
-                    // On click navigate to RestaurantDetailsScreen
-                    navController.navigate("details/$category Restaurant $index")
+    AnimatedVisibility(visible = isVisible) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.freedeliverycoupon),
+                contentDescription = "Coupon Background",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Crop
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "You have 2x free delivery coupon!",
+                    color = Color.Black,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Button(
+                    onClick = { /* Handle click */ },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F)),
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    Text(text = "Order Now")
                 }
             }
         }
@@ -579,54 +685,13 @@ fun CategoryScreen(category: String, navController: NavController) {
 }
 
 
-
-@Composable
-fun CouponBanner() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        // Background image
-        Image(
-            painter = painterResource(id = R.drawable.freedeliverycoupon),
-            contentDescription = "Coupon Background",
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp)), // Add corner shape if needed
-            contentScale = ContentScale.Crop // Scale the image to fill the box
-        )
-
-        // Content overlaid on the background image
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "You have 2x free delivery coupon!",
-                color = Color.Black,
-                style = MaterialTheme.typography.bodyLarge
-            )
-
-            Button(
-                onClick = { /* Handle click */ },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F)),
-                modifier = Modifier.align(Alignment.CenterEnd)
-            ) {
-                Text(text = "Order Now")
-            }
-        }
-    }
-}
-
 @Composable
 fun RestaurantItem(name: String, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            .clickable { onClick() } // Trigger the onClick lambda when clicked
+            .clickable { onClick() }
     ) {
         Row(modifier = Modifier.padding(8.dp)) {
             Text(text = name, style = MaterialTheme.typography.titleMedium)
@@ -635,7 +700,6 @@ fun RestaurantItem(name: String, onClick: () -> Unit) {
         }
     }
 }
-
 
 @Composable
 fun DeliveryHeader(address: String) {
@@ -653,71 +717,192 @@ fun DeliveryHeader(address: String) {
         Spacer(modifier = Modifier.width(15.dp))
         Column {
             Text(text = "Deliver To", style = MaterialTheme.typography.labelSmall)
-            Text(text = address, style = MaterialTheme.typography.titleMedium)  // Display dynamic address here
+            Text(text = address, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
 
-
-
-
 @Composable
 fun RequestLocationPermission(
     fusedLocationClient: FusedLocationProviderClient,
-    onPermissionGranted: () -> Unit = {},  // Callback if permission is granted
-    onPermissionDenied: () -> Unit = {},   // Callback if permission is denied
+    onPermissionGranted: () -> Unit = {},
+    onPermissionDenied: () -> Unit = {},
     onLocationReceived: (Location?) -> Unit = {} // Callback when location is received
 ) {
-    val context = LocalContext.current // Current context of the app
-    var permissionGranted by remember { mutableStateOf(false) }  // State to track if permission is granted
+    val context = LocalContext.current
+    var permissionGranted by remember { mutableStateOf(false) }
 
     // Create a launcher to request location permission
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        // Handle the result of the permission request
         permissionGranted = isGranted
         if (isGranted) {
             Toast.makeText(context, "Location permission granted", Toast.LENGTH_SHORT).show()
-            onPermissionGranted()  // Execute callback when granted
+            onPermissionGranted()
 
             // Fetch last known location
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                 if (location != null) {
                     onLocationReceived(location)
                 } else {
-                    Log.d("LocationPermission", "Last known location is null")
+                    Log.d("RequestLocationPermission", "Last known location is null")
                     onLocationReceived(null)
                 }
+            }.addOnFailureListener { e ->
+                Log.e("RequestLocationPermission", "Error retrieving location", e)
             }
-
 
         } else {
             Toast.makeText(context, "Location permission denied", Toast.LENGTH_SHORT).show()
-            onPermissionDenied()  // Execute callback when denied
+            onPermissionDenied()
         }
     }
 
-    // LaunchedEffect block to run the permission request once
+    // Request location permission
     LaunchedEffect(Unit) {
         when (ContextCompat.checkSelfPermission(
             context,
-            Manifest.permission.ACCESS_FINE_LOCATION  // Fine location permission
+            Manifest.permission.ACCESS_FINE_LOCATION
         )) {
             PackageManager.PERMISSION_GRANTED -> {
-                // If permission is already granted, trigger granted callback
                 permissionGranted = true
                 onPermissionGranted()
 
                 // Fetch last known location
                 fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                     onLocationReceived(location)
+                }.addOnFailureListener { e ->
+                    Log.e("RequestLocationPermission", "Error retrieving location", e)
                 }
             }
             else -> {
-                // Otherwise, launch the permission request dialog
                 permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
             }
         }
     }
 }
+@Composable
+fun LocationErrorState(error: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(text = error, color = Color.Red)
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = onRetry) {
+            Text(text = "Retry")
+        }
+    }
+}
+
+@Composable
+fun SignUpScreen(navController: NavController) {
+    val context = LocalContext.current
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    val auth = FirebaseAuth.getInstance()
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        TextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text(text = "Email") },
+            modifier = Modifier.padding(16.dp)
+        )
+        TextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text(text = "Password") },
+            modifier = Modifier.padding(16.dp),
+            visualTransformation = PasswordVisualTransformation()
+        )
+        Button(
+            onClick = {
+                if (isValidEmail(email)) {
+                    auth.createUserWithEmailAndPassword(email, password)
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                Toast.makeText(context, "Sign Up Successful", Toast.LENGTH_SHORT).show()
+                                navController.navigate("profile")
+                            } else {
+                                val errorMessage = task.exception?.message ?: "Unknown error occurred"
+                                Toast.makeText(context, "Sign Up Failed: $errorMessage", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                } else {
+                    Toast.makeText(context, "Invalid email format", Toast.LENGTH_SHORT).show()
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F)),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(text = "Sign Up")
+        }
+    }
+}
+
+
+@Composable
+fun LoginScreen(navController: NavController) {
+    val context = LocalContext.current
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    val auth = FirebaseAuth.getInstance()
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        TextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text(text = "Email") },
+            modifier = Modifier.padding(16.dp)
+        )
+        TextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text(text = "Password") },
+            modifier = Modifier.padding(16.dp),
+            visualTransformation = PasswordVisualTransformation()
+        )
+        Button(
+            onClick = {
+                if (isValidEmail(email)) {
+                    auth.signInWithEmailAndPassword(email, password)
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                Toast.makeText(context, "Log In Successful", Toast.LENGTH_SHORT).show()
+                                navController.navigate("profile")
+                            } else {
+                                val errorMessage = task.exception?.message ?: "Unknown error occurred"
+                                Toast.makeText(context, "Log In Failed: $errorMessage", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                } else {
+                    Toast.makeText(context, "Invalid email format", Toast.LENGTH_SHORT).show()
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F)),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(text = "Log In")
+        }
+    }
+}
+
+fun isValidEmail(email: String): Boolean {
+    return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+}
+
+
+

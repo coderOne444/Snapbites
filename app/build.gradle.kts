@@ -1,7 +1,11 @@
+import org.apache.tools.ant.util.JavaEnvUtils.VERSION_1_8
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.google.android.libraries.mapsplatform.secrets.gradle.plugin)
+    id("com.google.gms.google-services")
+
 }
 
 android {
@@ -56,6 +60,11 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation(platform("com.google.firebase:firebase-bom:33.3.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth-ktx:21.0.7")
+
+
 
     // Compose BOM (Bill of Materials) to ensure compatibility across Compose libraries
     implementation(platform(libs.androidx.compose.bom))
@@ -81,6 +90,7 @@ dependencies {
     // AndroidX libraries
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.firebase.auth.ktx)
 
     // Unit and UI testing dependencies
     testImplementation(libs.junit)
