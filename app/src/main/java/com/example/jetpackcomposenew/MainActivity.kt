@@ -72,6 +72,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavController
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -411,18 +412,32 @@ fun CouponButton() {
 
 @Composable
 fun FoodItemSection() {
+    var cartItems by remember { mutableStateOf(listOf<String>()) }
+
     LazyColumn(modifier = Modifier.padding(16.dp)) {
         items(3) {
-            FoodItem()
+            // Pass the onAddToCart function to FoodItem
+            FoodItem(onAddToCart = {
+                // Add item to cart and update the cart state
+                cartItems = cartItems + "Cheese Burger" // Add the specific item
+                Toast.makeText(LocalContext.current, "Item added to cart!", Toast.LENGTH_SHORT).show()
+            })
         }
     }
+
+    // Display the cart contents
+    Text(text = "Cart contains: ${cartItems.size} items", modifier = Modifier.padding(16.dp))
 }
 
+
+
 @Composable
-fun FoodItem() {
-    Card(modifier = Modifier
-        .fillMaxWidth()
-        .padding(8.dp)) {
+fun FoodItem(onAddToCart: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+    ) {
         Row(modifier = Modifier.padding(8.dp)) {
             Image(
                 painter = painterResource(id = R.drawable.burger), // Example image
@@ -433,10 +448,21 @@ fun FoodItem() {
             Column {
                 Text(text = "Cheese Burger", style = MaterialTheme.typography.titleMedium)
                 Text(text = "$15", style = MaterialTheme.typography.titleSmall)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Add to Cart Button
+                Button(
+                    onClick = onAddToCart, // Call the passed function when clicked
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F))
+                ) {
+                    Text(text = "Add to Cart")
+                }
             }
         }
     }
 }
+
 
 @Composable
 fun SplashScreen(navController: NavController) {
