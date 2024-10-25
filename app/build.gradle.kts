@@ -60,7 +60,9 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(platform("com.google.firebase:firebase-bom:33.3.0"))
+
+    //firebase implements
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-auth-ktx:21.0.7")
 
@@ -68,6 +70,7 @@ dependencies {
 
     // Compose BOM (Bill of Materials) to ensure compatibility across Compose libraries
     implementation(platform(libs.androidx.compose.bom))
+    implementation("androidx.navigation:navigation-compose:2.5.3") // or the latest version
 
     // UI and foundation libraries for Compose
     implementation("androidx.compose.ui:ui:1.5.1")  // Updated to latest stable

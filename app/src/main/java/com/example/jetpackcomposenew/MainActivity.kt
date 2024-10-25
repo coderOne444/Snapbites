@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
 import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -34,11 +35,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import android.net.Uri
+import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -50,10 +53,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -61,7 +69,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,17 +82,22 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavController
-import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberImagePainter
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    // Add CartViewModel to handle the cart items
+    private val cartViewModel: CartViewModel by this.viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,8 +106,9 @@ class MainActivity : ComponentActivity() {
         // Initialize the FusedLocationProviderClient
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
+        // Render the UI with cartViewModel passed into AppNavigation
         setContent {
-            AppNavigation()
+            AppNavigation(cartViewModel)
         }
     }
 
@@ -112,8 +128,28 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+data class CartItem(
+    val name: String,
+    val price: Double,
+    val quantity: Int = 1 // Default quantity is 1
+)
+
+class CartViewModel : ViewModel() {
+    private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
+    val cartItems: StateFlow<List<CartItem>> = _cartItems
+
+    fun addItemToCart(item: CartItem) {
+        _cartItems.value += item
+    }
+
+    fun removeItemFromCart(item: CartItem) {
+        _cartItems.value -= item
+    }
+}
+
+
 @Composable
-fun AppNavigation() {
+fun AppNavigation(cartViewModel: CartViewModel) {
     val navController = rememberNavController()
     var showBottomBar by remember { mutableStateOf(false) }
 
@@ -140,7 +176,7 @@ fun AppNavigation() {
                 SplashScreen(navController)
             }
             composable("home") {
-                HomeScreen(navController)
+                HomeScreen(navController, cartViewModel) // Pass cartViewModel to HomeScreen
             }
             composable("details/{restaurantName}") { backStackEntry ->
                 val restaurantName = backStackEntry.arguments?.getString("restaurantName")
@@ -158,20 +194,18 @@ fun AppNavigation() {
                     CategoryScreen(category, navController)
                 }
             }
-            composable("profile") {
-                ProfileScreen(navController = navController)
-            }
             composable("signup") {
                 SignUpScreen(navController = navController)
             }
             composable("login") {
                 LoginScreen(navController = navController)
             }
+            composable("cart") {
+                CartScreen(navController = navController, cartViewModel = cartViewModel) // Pass cartViewModel to CartScreen
+            }
         }
-
     }
 }
-
 
 
 @Composable
@@ -414,25 +448,34 @@ fun CouponButton() {
 fun FoodItemSection() {
     var cartItems by remember { mutableStateOf(listOf<String>()) }
 
+    // List of items (You can replace this with a more complex data model)
+    val foodItems = listOf("Cheese Burger", "Veggie Burger", "Chicken Burger")
+
     LazyColumn(modifier = Modifier.padding(16.dp)) {
-        items(3) {
-            // Pass the onAddToCart function to FoodItem
-            FoodItem(onAddToCart = {
+        items(foodItems) { item ->
+            val context = LocalContext.current
+            // Pass the onAddToCart function to FoodItem with specific item name
+            FoodItem(foodName = item, onAddToCart = {
                 // Add item to cart and update the cart state
-                cartItems = cartItems + "Cheese Burger" // Add the specific item
-                Toast.makeText(LocalContext.current, "Item added to cart!", Toast.LENGTH_SHORT).show()
+                cartItems = cartItems + item // Add the specific item
+                Toast.makeText(context, "$item added to cart!", Toast.LENGTH_SHORT).show()
             })
         }
     }
 
     // Display the cart contents
-    Text(text = "Cart contains: ${cartItems.size} items", modifier = Modifier.padding(16.dp))
+    Text(
+        text = "Cart contains: ${cartItems.size} items",
+        modifier = Modifier.padding(16.dp)
+    )
+    // You can also display the list of items in the cart, if desired
+    cartItems.forEach { item ->
+        Text(text = item, modifier = Modifier.padding(8.dp))
+    }
 }
 
-
-
 @Composable
-fun FoodItem(onAddToCart: () -> Unit) {
+fun FoodItem(foodName: String, onAddToCart: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -446,7 +489,7 @@ fun FoodItem(onAddToCart: () -> Unit) {
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column {
-                Text(text = "Cheese Burger", style = MaterialTheme.typography.titleMedium)
+                Text(text = foodName, style = MaterialTheme.typography.titleMedium)
                 Text(text = "$15", style = MaterialTheme.typography.titleSmall)
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -462,6 +505,7 @@ fun FoodItem(onAddToCart: () -> Unit) {
         }
     }
 }
+
 
 
 @Composable
@@ -487,32 +531,34 @@ fun SplashScreen(navController: NavController) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(navController: NavController, cartViewModel: CartViewModel) {
     val context = LocalContext.current
     var address by remember { mutableStateOf("Fetching location...") }
     var location by remember { mutableStateOf<Location?>(null) }
-    var locationError by remember { mutableStateOf<String?>(null) } // State for location errors
+    var locationError by remember { mutableStateOf<String?>(null) }
+    var isFetchingLocation by remember { mutableStateOf(false) }
+    var isManualEntry by remember { mutableStateOf(false) }
 
-    // Request location permission and fetch address
-    RequestLocationPermission(
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(context),
-        onLocationReceived = { loc ->
-            if (loc != null) {
-                Log.d("HomeScreen", "Location received: ${loc.latitude}, ${loc.longitude}")
+    // Get cart item count from CartViewModel
+    val cartItems by cartViewModel.cartItems.collectAsState()
+
+    // Trigger location fetching
+    if (isFetchingLocation) {
+        RequestLocationPermission(
+            fusedLocationClient = LocationServices.getFusedLocationProviderClient(context),
+            onLocationReceived = { loc ->
                 location = loc
-                locationError = null // Reset error when location is received
-            } else {
-                Log.d("HomeScreen", "Location is null")
-                locationError = "Unable to fetch location"
+                isFetchingLocation = false
+            },
+            onPermissionDenied = {
+                locationError = "Location permission denied"
+                isFetchingLocation = false
             }
-        },
-        onPermissionDenied = {
-            locationError = "Location permission denied"
-        }
-    )
+        )
+    }
 
-    // Fetch address using Geocoder when location is updated
     LaunchedEffect(location) {
         location?.let {
             val geocoder = Geocoder(context, Locale.getDefault())
@@ -531,21 +577,60 @@ fun HomeScreen(navController: NavController) {
         }
     }
 
-    // Check if there’s a location error, display LocationErrorState instead of main content
     if (locationError != null) {
         LocationErrorState(error = locationError!!) {
-            locationError = null // Reset the error and retry fetching location
-            location = null // Clear previous location
+            locationError = null
+            location = null
         }
     } else {
         Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Snapbites") },
+                    actions = {
+                        IconButton(onClick = {
+                            // Navigate to Cart Screen
+                            navController.navigate("cart")
+                        }) {
+                            BadgedBox(
+                                badge = {
+                                    if (cartItems.isNotEmpty()) {
+                                        Badge { Text(cartItems.size.toString()) }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ShoppingCart,
+                                    contentDescription = "Cart"
+                                )
+                            }
+                        }
+                    }
+                )
+            },
             content = { paddingValues ->
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
                 ) {
-                    DeliveryHeader(address = address)
+                    DeliveryHeader(
+                        address = address,
+                        onManualAddress = {
+                            isManualEntry = true
+                        },
+                        onAutomaticFetch = {
+                            isFetchingLocation = true
+                        }
+                    )
+
+                    if (isManualEntry) {
+                        ManualAddressInput { enteredAddress ->
+                            address = enteredAddress
+                            isManualEntry = false
+                        }
+                    }
+
                     CouponBanner()
 
                     var searchText by remember { mutableStateOf("") }
@@ -556,14 +641,83 @@ fun HomeScreen(navController: NavController) {
                         onSearchTextChanged = { newText -> searchText = newText }
                     )
 
+                    // Food Categories and Highest Rating Section
                     FoodCategories(navController)
-                    HighestRatingSection(searchText, navController)
+                    HighestRatingSection(searchText = searchText, navController = navController, cartViewModel = cartViewModel)
+                    // Example: Button to Add Item to Cart
+                    Button(onClick = {
+                        // Add item to cart using ViewModel
+                        cartViewModel.addItemToCart(CartItem("Sample Item", 12.99))
+                    }) {
+                        Text("Add to Cart")
+                    }
                 }
             }
         )
     }
 }
 
+@Composable
+fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
+    // Get cart items from CartViewModel
+    val cartItems by cartViewModel.cartItems.collectAsState()
+
+    // Calculate total price
+    val totalPrice = cartItems.sumOf { it.price }
+
+    // Access the context for Toast
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text("Your Cart", style = MaterialTheme.typography.headlineSmall)
+
+        if (cartItems.isEmpty()) {
+            Text("Your cart is empty")
+        } else {
+            LazyColumn {
+                items(cartItems) { item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Text(item.name, style = MaterialTheme.typography.bodyLarge)
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text("$${item.price}", style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Display total price
+            Text(
+                text = "Total: $${"%.2f".format(totalPrice)}",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.align(Alignment.End)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Place Order Button
+            Button(
+                onClick = {
+                    // Handle place order action
+                    Toast.makeText(context, "Order placed successfully", Toast.LENGTH_SHORT).show()
+                    //cartViewModel.clearCart()  // Optionally clear the cart after placing the order
+                },
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F))
+            ) {
+                Text("Place Order")
+            }
+        }
+    }
+}
 
 @Composable
 fun SearchBar(searchText: String, onSearchTextChanged: (String) -> Unit) {
@@ -582,7 +736,11 @@ fun SearchBar(searchText: String, onSearchTextChanged: (String) -> Unit) {
 }
 
 @Composable
-fun HighestRatingSection(searchText: String, navController: NavController) {
+fun HighestRatingSection(
+    searchText: String,
+    navController: NavController,
+    cartViewModel: CartViewModel // Pass cartViewModel as a parameter
+) {
     val items = listOf(
         "Snap Pizza" to R.drawable.snap_pizza,
         "Taco Supreme" to R.drawable.taco_supreme,
@@ -597,8 +755,12 @@ fun HighestRatingSection(searchText: String, navController: NavController) {
         Spacer(modifier = Modifier.height(8.dp))
         LazyRow {
             items(filteredItems) { item ->
-                HighestRatedItem(item.first, item.second) {
-                    // On click navigate to RestaurantDetailsScreen
+                HighestRatedItem(
+                    itemName = item.first,
+                    imageRes = item.second, // Ensure this matches the type expected by HighestRatedItem
+                    cartViewModel = cartViewModel
+                ) {
+                    // On click, navigate to RestaurantDetailsScreen
                     navController.navigate("details/${item.first}")
                 }
             }
@@ -606,8 +768,14 @@ fun HighestRatingSection(searchText: String, navController: NavController) {
     }
 }
 
+
 @Composable
-fun HighestRatedItem(itemName: String, imageRes: Int, onClick: () -> Unit) {
+fun HighestRatedItem(
+    itemName: String,
+    imageRes: Int,
+    cartViewModel: CartViewModel,  // Pass CartViewModel as a parameter
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .width(200.dp)
@@ -626,10 +794,19 @@ fun HighestRatedItem(itemName: String, imageRes: Int, onClick: () -> Unit) {
                 Text(text = itemName, style = MaterialTheme.typography.titleMedium)
                 Text(text = "4.3 ⭐️ 156+ reviews", style = MaterialTheme.typography.labelSmall)
                 Text(text = "1.5km • 15min", style = MaterialTheme.typography.labelSmall)
+
+                // Add to Cart Button
+                Button(onClick = {
+                    val item = CartItem(name = itemName, price = 9.99) // Replace with the actual price if available
+                    cartViewModel.addItemToCart(item)
+                }) {
+                    Text("Add to Cart")
+                }
             }
         }
     }
 }
+
 
 @Composable
 fun FoodCategories(navController: NavController) {
@@ -728,11 +905,18 @@ fun RestaurantItem(name: String, onClick: () -> Unit) {
 }
 
 @Composable
-fun DeliveryHeader(address: String) {
+fun DeliveryHeader(
+    address: String,
+    onManualAddress: () -> Unit,
+    onAutomaticFetch: () -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(16.dp)
+            .clickable { showDialog = true },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -743,10 +927,77 @@ fun DeliveryHeader(address: String) {
         Spacer(modifier = Modifier.width(15.dp))
         Column {
             Text(text = "Deliver To", style = MaterialTheme.typography.labelSmall)
-            Text(text = address, style = MaterialTheme.typography.titleMedium)
+
+            Box(
+                modifier = Modifier
+                    .border(BorderStroke(2.dp, Color.Green), RoundedCornerShape(4.dp))
+                    .padding(8.dp)
+            ) {
+                Text(text = address, style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
+
+    if (showDialog) {
+        AddressOptionDialog(
+            onDismiss = { showDialog = false },
+            onManualAddress = {
+                showDialog = false
+                onManualAddress()
+            },
+            onAutomaticFetch = {
+                showDialog = false
+                onAutomaticFetch()
+            }
+        )
+    }
+}
+
+@Composable
+fun AddressOptionDialog(
+    onDismiss: () -> Unit,
+    onManualAddress: () -> Unit,
+    onAutomaticFetch: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = "Choose Address Option") },
+        text = { Text(text = "How would you like to enter your address?") },
+        confirmButton = {
+            Button(onClick = onManualAddress) {
+                Text(text = "Manual Address")
+            }
+        },
+        dismissButton = {
+            Button(onClick = onAutomaticFetch) {
+                Text(text = "Fetch Automatically")
+            }
+        }
+    )
+}
+
+
+@Composable
+fun ManualAddressInput(onSubmit: (String) -> Unit) {
+    var manualAddress by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier.padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        TextField(
+            value = manualAddress,
+            onValueChange = { manualAddress = it },
+            label = { Text("Enter Address") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = { onSubmit(manualAddress) }) {
+            Text("Submit")
         }
     }
 }
+
 
 @Composable
 fun RequestLocationPermission(
@@ -925,7 +1176,6 @@ fun LoginScreen(navController: NavController) {
         }
     }
 }
-
 fun isValidEmail(email: String): Boolean {
     return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 }
