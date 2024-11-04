@@ -65,6 +65,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-auth-ktx:21.0.7")
+    implementation("com.google.android.gms:play-services-location:latest_version")
 
 
 
@@ -97,6 +98,8 @@ dependencies {
 
     // Unit and UI testing dependencies
     testImplementation(libs.junit)
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.junit.jupiter)
     androidTestImplementation(libs.androidx.junit)
     implementation("io.coil-kt:coil-compose:2.2.2")
     androidTestImplementation(libs.androidx.espresso.core)

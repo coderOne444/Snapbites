@@ -3,6 +3,8 @@
 package com.example.jetpackcomposenew
 
 import android.Manifest
+import android.app.Application
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
@@ -36,6 +38,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import android.net.Uri
 import androidx.activity.viewModels
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -50,8 +53,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddShoppingCart
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
@@ -59,14 +65,17 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
@@ -77,27 +86,45 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+import androidx.constraintlayout.motion.widget.Debug.getLocation
+import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.AndroidViewModel
 import androidx.navigation.NavController
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberImagePainter
 import com.google.firebase.auth.FirebaseAuth
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     // Add CartViewModel to handle the cart items
-    private val cartViewModel: CartViewModel by this.viewModels()
+    private val cartViewModel: CartViewModel by viewModels()
+
+    // Initialize LocationViewModel with a factory for context dependency
+    private val locationViewModel: LocationViewModel by viewModels {
+        LocationViewModelFactory(application)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -106,57 +133,91 @@ class MainActivity : ComponentActivity() {
         // Initialize the FusedLocationProviderClient
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-        // Render the UI with cartViewModel passed into AppNavigation
+        // Render the UI with both cartViewModel and locationViewModel passed into AppNavigation
         setContent {
-            AppNavigation(cartViewModel)
+            AppNavigation(cartViewModel = cartViewModel, locationViewModel = locationViewModel)
         }
     }
+}
 
-    // Function to fetch the user's last known location
-    private fun getLastKnownLocation(onLocationResult: (Location?) -> Unit) {
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            fusedLocationClient.lastLocation
-                .addOnSuccessListener { location: Location? ->
-                    // Pass location to callback
-                    onLocationResult(location)
-                }
+class LocationViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(LocationViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return LocationViewModel(application) as T
         }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
 
 data class CartItem(
     val name: String,
-    val price: Double,
+    val priceInRs: Double,
     val quantity: Int = 1 // Default quantity is 1
+)
+data class Restaurant(
+    val name: String,
+    val imageResId: Int, // Use Int to hold drawable resource IDs
+    val rating: Float,
+    val distance: Float
 )
 
 class CartViewModel : ViewModel() {
     private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
     val cartItems: StateFlow<List<CartItem>> = _cartItems
 
+    private val _orderDetails = MutableStateFlow<List<CartItem>?>(null)
+    val orderDetails: StateFlow<List<CartItem>?> = _orderDetails
+
     fun addItemToCart(item: CartItem) {
         _cartItems.value += item
+        Log.d("CartViewModel", "Added item: ${item.name}. Current cart: ${_cartItems.value}")
     }
 
-    fun removeItemFromCart(item: CartItem) {
-        _cartItems.value -= item
+    // Function to clear all items from the cart
+    fun clearCart() {
+        _cartItems.value = emptyList()
+        Log.d("CartViewModel", "Cart cleared. Current cart: ${_cartItems.value}")
+    }
+
+    // Function to place an order
+    fun placeOrder() {
+        _orderDetails.value = _cartItems.value
+        clearCart()  // Clear the cart after placing the order
+        Log.d("CartViewModel", "Order placed. Order details: ${_orderDetails.value}")
     }
 }
 
 
 @Composable
-fun AppNavigation(cartViewModel: CartViewModel) {
+fun AppNavigation(
+    cartViewModel: CartViewModel = viewModel(),
+    locationViewModel: LocationViewModel = viewModel()
+) {
     val navController = rememberNavController()
     var showBottomBar by remember { mutableStateOf(false) }
+
+    // Define the restaurant list here
+    val restaurantList = listOf(
+        Restaurant("Maa Kali Restaurant", R.drawable.burger, 3.4f, 1.2f),
+        Restaurant("Aasha Biriyani House", R.drawable.burger, 4.5f, 2.3f),
+        Restaurant("Bharti Restaurant", R.drawable.burger, 4.0f, 1.5f),
+        Restaurant("Dolphin Restaurant", R.drawable.burger, 2.5f, 0.9f),
+        Restaurant("The Nawaab Restaurant", R.drawable.burger, 5.0f, 3.0f),
+        Restaurant("Amrita Restaurant", R.drawable.burger, 3.7f, 1.5f),
+        Restaurant("Monginis Restaurant", R.drawable.burger, 3.9f, 0.7f),
+        Restaurant("Mio Amore the Cake Shop", R.drawable.burger, 4.3f, 1.1f),
+        Restaurant("Prasenjit Hotel", R.drawable.burger, 4.4f, 2.0f),
+        Restaurant("MSR Cafe and Restaurant", R.drawable.burger, 4.8f, 0.8f),
+        Restaurant("Mira Store", R.drawable.burger, 4.3f, 1.4f),
+        Restaurant("Darjeeling Fast Food", R.drawable.burger, 4.7f, 1.6f),
+        Restaurant("Abar Khabo Tiffin House", R.drawable.burger, 1.0f, 2.2f)
+    )
 
     // Listen for route changes to toggle bottom bar visibility
     LaunchedEffect(navController) {
         navController.currentBackStackEntryFlow.collect { backStackEntry ->
-            showBottomBar = backStackEntry.destination.route != "splash"
+            showBottomBar = shouldShowBottomBar(backStackEntry.destination.route)
         }
     }
 
@@ -176,23 +237,21 @@ fun AppNavigation(cartViewModel: CartViewModel) {
                 SplashScreen(navController)
             }
             composable("home") {
-                HomeScreen(navController, cartViewModel) // Pass cartViewModel to HomeScreen
+                HomeScreen(navController = navController, cartViewModel = cartViewModel, locationViewModel = locationViewModel)
             }
             composable("details/{restaurantName}") { backStackEntry ->
-                val restaurantName = backStackEntry.arguments?.getString("restaurantName")
-                RestaurantDetailsScreen(restaurantName ?: "Unknown Restaurant")
+                val restaurantName = backStackEntry.arguments?.getString("restaurantName").orEmpty()
+                RestaurantDetailsScreen(navController, cartViewModel, restaurantName)
             }
             composable("order") {
-                OrderScreen()
+                OrderScreen(cartViewModel = cartViewModel)
             }
             composable("profile") {
                 ProfileScreen(navController = navController)
             }
             composable("category/{category}") { backStackEntry ->
-                val category = backStackEntry.arguments?.getString("category")
-                if (category != null) {
-                    CategoryScreen(category, navController)
-                }
+                val category = backStackEntry.arguments?.getString("category").orEmpty()
+                CategoryScreen(category, navController, restaurantList)
             }
             composable("signup") {
                 SignUpScreen(navController = navController)
@@ -201,54 +260,24 @@ fun AppNavigation(cartViewModel: CartViewModel) {
                 LoginScreen(navController = navController)
             }
             composable("cart") {
-                CartScreen(navController = navController, cartViewModel = cartViewModel) // Pass cartViewModel to CartScreen
+                CartScreen(navController = navController, cartViewModel = cartViewModel)
             }
         }
     }
 }
 
-
-@Composable
-fun BottomNavBar(navController: NavController) {
-    val currentDestination = navController.currentDestination
-    val currentRoute = currentDestination?.route  // Extract the current route safely
-
-    NavigationBar {
-        NavigationBarItem(
-            icon = { Icon(imageVector = Icons.Default.Home, contentDescription = "Home") },
-            label = { Text("Home") },
-            selected = currentRoute == "home",  // Check the route safely
-            onClick = {
-                navController.navigate("home") {
-                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                }
-            }
-        )
-        NavigationBarItem(
-            icon = { Icon(imageVector = Icons.Default.ShoppingCart, contentDescription = "Order") },
-            label = { Text("Order") },
-            selected = currentRoute == "order",  // Check the route safely
-            onClick = {
-                navController.navigate("order") {
-                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                }
-            }
-        )
-        NavigationBarItem(
-            icon = { Icon(imageVector = Icons.Default.Person, contentDescription = "Profile") },
-            label = { Text("Profile") },
-            selected = currentRoute == "profile",  // Check the route safely
-            onClick = {
-                navController.navigate("profile") {
-                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                }
-            }
-        )
-    }
+// Helper function to determine when to show the bottom bar
+private fun shouldShowBottomBar(route: String?): Boolean {
+    return route != "splash"
 }
 
+
 @Composable
-fun CategoryScreen(category: String, navController: NavController) {
+fun CategoryScreen(
+    category: String,
+    navController: NavHostController,
+    restaurantList: List<Restaurant>
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -261,14 +290,22 @@ fun CategoryScreen(category: String, navController: NavController) {
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // List of dummy restaurants for the given category
+        // List of restaurants filtered by category
         LazyColumn {
-            items(5) { index ->
+            val filteredRestaurants = restaurantList.filter { restaurant ->
+                // Implement your filtering logic based on category if needed
+                true // Placeholder
+            }
+
+            items(filteredRestaurants) { restaurant ->
                 RestaurantItem(
-                    name = "$category Restaurant $index",
+                    name = restaurant.name,
+                    rating = restaurant.rating,
+                    distance = "${restaurant.distance} km",
+                    imageResId = restaurant.imageResId, // Use the resource ID here
                     onClick = {
                         // Navigate to the details screen when a restaurant is clicked
-                        navController.navigate("details/$category Restaurant $index")
+                        navController.navigate("details/${restaurant.name}")
                     }
                 )
             }
@@ -276,23 +313,186 @@ fun CategoryScreen(category: String, navController: NavController) {
     }
 }
 
+@Composable
+fun RestaurantItem(
+    name: String,
+    rating: Float,
+    distance: String,
+    imageResId: Int,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .padding(8.dp)
+            .clickable { onClick() }
+    ) {
+        Column {
+            Image(
+                painter = painterResource(id = imageResId),
+                contentDescription = name,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp),
+                contentScale = ContentScale.Crop
+            )
+            Text(text = name, style = MaterialTheme.typography.headlineSmall)
+            Text(text = "Rating: $rating ⭐", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Distance: $distance", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
 
 @Composable
-fun OrderScreen() {
+fun BottomNavBar(navController: NavController) {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .background(
+                color = Color.White,
+                shape = RoundedCornerShape(16.dp) // Rounded edges for the entire navigation bar
+            )
+            .shadow(8.dp, RoundedCornerShape(16.dp)) // Optional shadow for elevation effect
+    ) {
+        NavigationBar(
+            modifier = Modifier
+                .height(90.dp) // Adjust the height for compactness
+        ) {
+            NavigationBarItem(
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = "Home",
+                        modifier = Modifier
+                            .size(24.dp) // Smaller icon size
+                            .padding(top = 4.dp) // Shift icon downwards
+                    )
+                },
+                label = {
+                    Text(
+                        "Home",
+                        fontSize = 15.sp,
+                        modifier = Modifier.padding(top = 2.dp) // Shift text downwards
+                    )
+                },
+                selected = currentRoute == "home",
+                onClick = {
+                    navController.navigate("home") {
+                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = Color.White,
+                    selectedTextColor = Color.Black,
+                    unselectedIconColor = Color.Black,
+                    unselectedTextColor = Color.Black,
+                    indicatorColor = Color(0xFF4CAF50) // Green background when selected
+                )
+            )
+            NavigationBarItem(
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.ShoppingCart,
+                        contentDescription = "Order",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .padding(top = 4.dp) // Shift icon downwards
+                    )
+                },
+                label = {
+                    Text(
+                        "Order",
+                        fontSize = 15.sp,
+                        modifier = Modifier.padding(top = 2.dp) // Shift text downwards
+                    )
+                },
+                selected = currentRoute == "order",
+                onClick = {
+                    navController.navigate("order") {
+                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = Color.White,
+                    selectedTextColor = Color.Black,
+                    unselectedIconColor = Color.Black,
+                    unselectedTextColor = Color.Black,
+                    indicatorColor = Color(0xFF4CAF50)
+                )
+            )
+            NavigationBarItem(
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Profile",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .padding(top = 4.dp) // Shift icon downwards
+                    )
+                },
+                label = {
+                    Text(
+                        "Profile",
+                        fontSize = 15.sp,
+                        modifier = Modifier.padding(top = 2.dp) // Shift text downwards
+                    )
+                },
+                selected = currentRoute == "profile",
+                onClick = {
+                    navController.navigate("profile") {
+                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = Color.White,
+                    selectedTextColor = Color.Black,
+                    unselectedIconColor = Color.Black,
+                    unselectedTextColor = Color.Black,
+                    indicatorColor = Color(0xFF4CAF50)
+                )
+            )
+        }
+    }
+}
+
+
+@Composable
+fun OrderScreen(cartViewModel: CartViewModel) {
+    val orderDetails by cartViewModel.orderDetails.collectAsState()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = "No Orders", style = MaterialTheme.typography.headlineSmall)
+        if (orderDetails.isNullOrEmpty()) {
+            Text(text = "No Orders", style = MaterialTheme.typography.headlineSmall)
+        } else {
+            Column {
+                Text(text = "Order Details", style = MaterialTheme.typography.headlineSmall)
+                Spacer(modifier = Modifier.height(8.dp))
+                orderDetails!!.forEach { orderItem ->
+                    Text(text = "${orderItem.name} - $${orderItem.priceInRs}", modifier = Modifier.padding(4.dp))
+                }
+            }
+        }
     }
 }
 
 @Composable
 fun ProfileScreen(navController: NavController) {
-    var name by remember { mutableStateOf("Jonny Kumar") }
-    var email by remember { mutableStateOf("jonnykumar@example.com") }
+    var name by remember { mutableStateOf("Xyz User") }
+    var email by remember { mutableStateOf("Xyz@example.com") }
     var imageUri by remember { mutableStateOf<Uri?>(null) } // For storing the profile image URI
     val context = LocalContext.current
 
@@ -397,10 +597,8 @@ fun ProfileScreen(navController: NavController) {
     }
 }
 
-
-
 @Composable
-fun RestaurantDetailsScreen(restaurantName: String) {
+fun RestaurantDetailsScreen(navController: NavController, cartViewModel: CartViewModel, restaurantName: String) {
     Column(modifier = Modifier.fillMaxSize()) {
         // Display the restaurant name passed as a parameter
         Text(text = restaurantName, style = MaterialTheme.typography.headlineSmall)
@@ -411,8 +609,8 @@ fun RestaurantDetailsScreen(restaurantName: String) {
         // Coupon Button
         CouponButton()
 
-        // Food Items
-        FoodItemSection()
+        // Food Items with the CartViewModel
+        FoodItemSection(cartViewModel)
     }
 }
 
@@ -444,68 +642,97 @@ fun CouponButton() {
     }
 }
 
+data class FoodItemData(
+    val name: String,
+    val price: Double,
+    @DrawableRes val imageRes: Int
+)
+
 @Composable
-fun FoodItemSection() {
-    var cartItems by remember { mutableStateOf(listOf<String>()) }
-
-    // List of items (You can replace this with a more complex data model)
-    val foodItems = listOf("Cheese Burger", "Veggie Burger", "Chicken Burger")
-
-    LazyColumn(modifier = Modifier.padding(16.dp)) {
-        items(foodItems) { item ->
-            val context = LocalContext.current
-            // Pass the onAddToCart function to FoodItem with specific item name
-            FoodItem(foodName = item, onAddToCart = {
-                // Add item to cart and update the cart state
-                cartItems = cartItems + item // Add the specific item
-                Toast.makeText(context, "$item added to cart!", Toast.LENGTH_SHORT).show()
-            })
-        }
-    }
-
-    // Display the cart contents
-    Text(
-        text = "Cart contains: ${cartItems.size} items",
-        modifier = Modifier.padding(16.dp)
+fun FoodItemSection(cartViewModel: CartViewModel) {
+    val foodItems = listOf(
+        FoodItemData("Cheese Burger", 15.0, R.drawable.cheese_burger),
+        FoodItemData("Veggie Burger", 10.0, R.drawable.burger),
+        FoodItemData("Chicken Burger", 12.0, R.drawable.cheese_burger)
     )
-    // You can also display the list of items in the cart, if desired
-    cartItems.forEach { item ->
-        Text(text = item, modifier = Modifier.padding(8.dp))
-    }
-}
 
-@Composable
-fun FoodItem(foodName: String, onAddToCart: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp)
-    ) {
-        Row(modifier = Modifier.padding(8.dp)) {
-            Image(
-                painter = painterResource(id = R.drawable.burger), // Example image
-                contentDescription = null,
-                modifier = Modifier.size(80.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(text = foodName, style = MaterialTheme.typography.titleMedium)
-                Text(text = "$15", style = MaterialTheme.typography.titleSmall)
-                Spacer(modifier = Modifier.height(8.dp))
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(
+            text = "Menu",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
 
-                // Add to Cart Button
-                Button(
-                    onClick = onAddToCart, // Call the passed function when clicked
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F))
-                ) {
-                    Text(text = "Add to Cart")
-                }
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(foodItems) { foodItem ->
+                FoodItem(foodItem = foodItem, cartViewModel = cartViewModel)
             }
         }
     }
 }
 
+
+@Composable
+fun FoodItem(
+    foodItem: FoodItemData,
+    cartViewModel: CartViewModel
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp)
+            .clip(RoundedCornerShape(8.dp))
+    ) {
+        // Food Image
+        Image(
+            painter = painterResource(id = foodItem.imageRes),
+            contentDescription = null,
+            modifier = Modifier
+                .size(80.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.secondary)
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = foodItem.name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "₹${foodItem.price}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "A delicious ${foodItem.name} for you to enjoy.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        // Add Button
+        Button(
+            onClick = {
+                val cartItem = CartItem(name = foodItem.name, priceInRs = foodItem.price)
+                cartViewModel.addItemToCart(cartItem)
+            },
+            modifier = Modifier.align(Alignment.CenterVertically),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F))
+        ) {
+            Text(text = "ADD", color = Color.White)
+        }
+    }
+}
 
 
 @Composable
@@ -533,54 +760,76 @@ fun SplashScreen(navController: NavController) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController, cartViewModel: CartViewModel) {
+fun HomeScreen(
+    navController: NavController,
+    cartViewModel: CartViewModel,
+    locationViewModel: LocationViewModel
+) {
     val context = LocalContext.current
-    var address by remember { mutableStateOf("Fetching location...") }
-    var location by remember { mutableStateOf<Location?>(null) }
-    var locationError by remember { mutableStateOf<String?>(null) }
-    var isFetchingLocation by remember { mutableStateOf(false) }
-    var isManualEntry by remember { mutableStateOf(false) }
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
-    // Get cart item count from CartViewModel
+    // State variables
+    val address by locationViewModel.address.collectAsState()
+    var location by remember { mutableStateOf<Location?>(null) }
+    var fetchedAddress by remember { mutableStateOf("Fetching address...") }
+    val locationError by locationViewModel.locationError.collectAsState()
     val cartItems by cartViewModel.cartItems.collectAsState()
 
-    // Trigger location fetching
-    if (isFetchingLocation) {
-        RequestLocationPermission(
-            fusedLocationClient = LocationServices.getFusedLocationProviderClient(context),
-            onLocationReceived = { loc ->
-                location = loc
-                isFetchingLocation = false
-            },
-            onPermissionDenied = {
-                locationError = "Location permission denied"
-                isFetchingLocation = false
-            }
-        )
-    }
+    // State variable for search text
+    var searchText by remember { mutableStateOf("") }
 
+    // Restaurant list
+    val restaurantList = listOf(
+        Restaurant("Maa Kali Restaurant", R.drawable.burger, 3.4f, 1.2f),
+        Restaurant("Aasha Biriyani House", R.drawable.burger, 4.5f, 2.3f),
+        Restaurant("Bharti Restaurant", R.drawable.burger, 4.0f, 1.5f),
+        Restaurant("Dolphin Restaurant", R.drawable.burger, 2.5f, 0.9f),
+        Restaurant("The Nawaab Restaurant", R.drawable.burger, 5.0f, 3.0f),
+        Restaurant("Amrita Restaurant", R.drawable.burger, 3.7f, 1.5f),
+        Restaurant("Monginis Restaurant", R.drawable.burger, 3.9f, 0.7f),
+        Restaurant("Mio Amore the Cake Shop", R.drawable.burger, 4.3f, 1.1f),
+        Restaurant("Prasenjit Hotel", R.drawable.burger, 4.4f, 2.0f),
+        Restaurant("MSR Cafe and Restaurant", R.drawable.burger, 4.8f, 0.8f),
+        Restaurant("Mira Store", R.drawable.burger, 4.3f, 1.4f),
+        Restaurant("Darjeeling Fast Food", R.drawable.burger, 4.7f, 1.6f),
+        Restaurant("Abar Khabo Tiffin House", R.drawable.burger, 1.0f, 2.2f)
+    )
+
+
+    // Request location permission and fetch address
+    RequestLocationPermission(
+        fusedLocationClient = fusedLocationClient,
+        onLocationReceived = { loc ->
+            if (loc != null) {
+                Log.d("HomeScreen", "Location received: ${loc.latitude}, ${loc.longitude}")
+                location = loc
+            } else {
+                Log.d("HomeScreen", "Location is null")
+            }
+        }
+    )
+
+    // Use LaunchedEffect to fetch address when location is received
     LaunchedEffect(location) {
         location?.let {
             val geocoder = Geocoder(context, Locale.getDefault())
-            address = try {
+            try {
                 val addressList = withContext(Dispatchers.IO) {
                     geocoder.getFromLocation(it.latitude, it.longitude, 1)
                 }
-                if (!addressList.isNullOrEmpty()) {
-                    addressList[0].getAddressLine(0)
-                } else {
-                    "Address not found"
-                }
+                fetchedAddress = addressList?.firstOrNull()?.getAddressLine(0) ?: "Address not found"
             } catch (e: Exception) {
-                "Error fetching address"
+                fetchedAddress = "Error fetching address"
+                Log.e("HomeScreen", "Error fetching address: ${e.message}")
             }
+        } ?: run {
+            fetchedAddress = "Unable to fetch location"
         }
     }
 
     if (locationError != null) {
         LocationErrorState(error = locationError!!) {
-            locationError = null
-            location = null
+            locationViewModel.fetchLocation()
         }
     } else {
         Scaffold(
@@ -589,7 +838,6 @@ fun HomeScreen(navController: NavController, cartViewModel: CartViewModel) {
                     title = { Text("Snapbites") },
                     actions = {
                         IconButton(onClick = {
-                            // Navigate to Cart Screen
                             navController.navigate("cart")
                         }) {
                             BadgedBox(
@@ -609,51 +857,87 @@ fun HomeScreen(navController: NavController, cartViewModel: CartViewModel) {
                 )
             },
             content = { paddingValues ->
-                Column(
+                LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues)
                 ) {
-                    DeliveryHeader(
-                        address = address,
-                        onManualAddress = {
-                            isManualEntry = true
-                        },
-                        onAutomaticFetch = {
-                            isFetchingLocation = true
-                        }
-                    )
-
-                    if (isManualEntry) {
-                        ManualAddressInput { enteredAddress ->
-                            address = enteredAddress
-                            isManualEntry = false
-                        }
+                    // Pass the fetched address to DeliveryHeader
+                    item {
+                        DeliveryHeader(
+                            address = fetchedAddress,
+                            onManualAddress = {
+                                // Handle manual address entry
+                            },
+                            onAutomaticFetch = {
+                                locationViewModel.fetchLocation()
+                            }
+                        )
                     }
 
-                    CouponBanner()
+                    item {
+                        // Pass the navigation callback to the CouponBanner
+                        CouponBanner(
+                            onOrderNowClick = {
+                                navController.navigate("restaurants") // Adjust to your actual restaurant list route
+                            }
+                        )
+                    }
 
-                    var searchText by remember { mutableStateOf("") }
-
-                    // Search Bar
-                    SearchBar(
-                        searchText = searchText,
-                        onSearchTextChanged = { newText -> searchText = newText }
-                    )
+                    item {
+                        // Search Bar
+                        SearchBar(
+                            searchText = searchText,
+                            onSearchTextChanged = { newText -> searchText = newText }
+                        )
+                    }
 
                     // Food Categories and Highest Rating Section
-                    FoodCategories(navController)
-                    HighestRatingSection(searchText = searchText, navController = navController, cartViewModel = cartViewModel)
-                    // Example: Button to Add Item to Cart
-                    Button(onClick = {
-                        // Add item to cart using ViewModel
-                        cartViewModel.addItemToCart(CartItem("Sample Item", 12.99))
-                    }) {
-                        Text("Add to Cart")
+                    item {
+                        FoodCategories(navController)
+                    }
+
+                    item {
+                        HighestRatingSection(searchText = searchText, navController = navController, cartViewModel = cartViewModel)
+                    }
+
+                    // Restaurant List
+                    items(restaurantList) { restaurant ->
+                        RestaurantCard(restaurant) { selectedRestaurant ->
+                            navController.navigate("details/${selectedRestaurant.name}")
+                        }
                     }
                 }
             }
         )
+    }
+}
+
+
+@Composable
+fun RestaurantCard(
+    restaurant: Restaurant,
+    onClick: (Restaurant) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .padding(8.dp)
+            .clickable { onClick(restaurant) }
+    ) {
+        Column {
+            // Display restaurant image using the drawable resource ID
+            Image(
+                painter = painterResource(id = restaurant.imageResId), // This should use imageResId
+                contentDescription = restaurant.name,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp),
+                contentScale = ContentScale.Crop
+            )
+            Text(text = restaurant.name, style = MaterialTheme.typography.headlineSmall)
+            Text(text = "Rating: ${restaurant.rating}", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Distance: ${restaurant.distance} km", style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 
@@ -663,7 +947,7 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
     val cartItems by cartViewModel.cartItems.collectAsState()
 
     // Calculate total price
-    val totalPrice = cartItems.sumOf { it.price }
+    val totalPrice = cartItems.sumOf { it.priceInRs }
 
     // Access the context for Toast
     val context = LocalContext.current
@@ -677,6 +961,10 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
 
         if (cartItems.isEmpty()) {
             Text("Your cart is empty")
+            // Button to navigate back to Home
+            Button(onClick = { navController.navigate("home") }) {
+                Text("Go to Home")
+            }
         } else {
             LazyColumn {
                 items(cartItems) { item ->
@@ -687,7 +975,7 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
                     ) {
                         Text(item.name, style = MaterialTheme.typography.bodyLarge)
                         Spacer(modifier = Modifier.weight(1f))
-                        Text("$${item.price}", style = MaterialTheme.typography.bodyLarge)
+                        Text("$${item.priceInRs}", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }
@@ -708,7 +996,8 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
                 onClick = {
                     // Handle place order action
                     Toast.makeText(context, "Order placed successfully", Toast.LENGTH_SHORT).show()
-                    //cartViewModel.clearCart()  // Optionally clear the cart after placing the order
+                    // Clear cart after placing the order
+                    cartViewModel.clearCart()
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F))
@@ -718,6 +1007,7 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
         }
     }
 }
+
 
 @Composable
 fun SearchBar(searchText: String, onSearchTextChanged: (String) -> Unit) {
@@ -730,7 +1020,7 @@ fun SearchBar(searchText: String, onSearchTextChanged: (String) -> Unit) {
             .padding(16.dp),
         singleLine = true,
         leadingIcon = {
-            Icon(imageVector = Icons.Default.Person, contentDescription = "Search Icon")
+            Icon(imageVector = Icons.Default.Search, contentDescription = "Search Icon")
         },
     )
 }
@@ -768,45 +1058,53 @@ fun HighestRatingSection(
     }
 }
 
-
 @Composable
 fun HighestRatedItem(
     itemName: String,
     imageRes: Int,
-    cartViewModel: CartViewModel,  // Pass CartViewModel as a parameter
+    cartViewModel: CartViewModel, // Pass CartViewModel as a parameter
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .width(200.dp)
             .padding(end = 16.dp)
-            .clickable { onClick() }
+            .clickable { onClick() } // Click action for the card
     ) {
         Column {
+            // Image for the restaurant item
             Image(
                 painter = painterResource(id = imageRes),
-                contentDescription = null,
+                contentDescription = null, // Use a meaningful description in production
                 modifier = Modifier
                     .height(100.dp)
                     .fillMaxWidth()
             )
             Column(modifier = Modifier.padding(8.dp)) {
+                // Item name
                 Text(text = itemName, style = MaterialTheme.typography.titleMedium)
-                Text(text = "4.3 ⭐️ 156+ reviews", style = MaterialTheme.typography.labelSmall)
+
+                // Additional info about the item
+                Text(text = "4.4 ⭐️ 156+ reviews", style = MaterialTheme.typography.labelSmall)
                 Text(text = "1.5km • 15min", style = MaterialTheme.typography.labelSmall)
 
                 // Add to Cart Button
-                Button(onClick = {
-                    val item = CartItem(name = itemName, price = 9.99) // Replace with the actual price if available
-                    cartViewModel.addItemToCart(item)
-                }) {
+                Button(
+                    onClick = {
+                        val item = CartItem(name = itemName, priceInRs = 9.99) // Replace with the actual price if available
+                        cartViewModel.addItemToCart(item)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CAF50), // Use containerColor for Material 3
+                        contentColor = Color.White // White text color
+                    )
+                ) {
                     Text("Add to Cart")
                 }
             }
         }
     }
 }
-
 
 @Composable
 fun FoodCategories(navController: NavController) {
@@ -848,7 +1146,7 @@ fun CategoryItem(category: String, iconRes: Int, onClick: () -> Unit) {
 }
 
 @Composable
-fun CouponBanner() {
+fun CouponBanner(onOrderNowClick: () -> Unit) {
     val isVisible by remember { mutableStateOf(true) }
 
     AnimatedVisibility(visible = isVisible) {
@@ -871,12 +1169,12 @@ fun CouponBanner() {
                     .padding(16.dp)
             ) {
                 Text(
-                    text = "You have 2x free delivery coupon!",
+                    text = "2x free delivery coupon!",
                     color = Color.Black,
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodySmall
                 )
                 Button(
-                    onClick = { /* Handle click */ },
+                    onClick = onOrderNowClick, // Use the callback here
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F)),
                     modifier = Modifier.align(Alignment.CenterEnd)
                 ) {
@@ -887,9 +1185,22 @@ fun CouponBanner() {
     }
 }
 
-
+// Example list of random restaurant names
+val randomRestaurantNames = listOf(
+    "Sushi Galaxy",
+    "Pizza Paradise",
+    "Burger Town",
+    "Curry King",
+    "Pasta Place",
+    "Taco Heaven",
+    "Seafood Shack",
+    "Steakhouse Delight",
+    "Vegan Bistro",
+    "Dumpling House"
+)
 @Composable
-fun RestaurantItem(name: String, onClick: () -> Unit) {
+fun RestaurantItem(onClick: () -> Unit) {
+    val restaurantName = randomRestaurantNames.random() // Pick a random name from the list
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -897,7 +1208,7 @@ fun RestaurantItem(name: String, onClick: () -> Unit) {
             .clickable { onClick() }
     ) {
         Row(modifier = Modifier.padding(8.dp)) {
-            Text(text = name, style = MaterialTheme.typography.titleMedium)
+            Text(text = restaurantName, style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.weight(1f))
             Text(text = "4.1 ⭐️", style = MaterialTheme.typography.bodySmall)
         }
@@ -920,7 +1231,7 @@ fun DeliveryHeader(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = Icons.Default.Person,
+            imageVector = Icons.Default.Map,
             contentDescription = "User",
             modifier = Modifier.size(24.dp)
         )
@@ -998,7 +1309,6 @@ fun ManualAddressInput(onSubmit: (String) -> Unit) {
     }
 }
 
-
 @Composable
 fun RequestLocationPermission(
     fusedLocationClient: FusedLocationProviderClient,
@@ -1017,41 +1327,20 @@ fun RequestLocationPermission(
         if (isGranted) {
             Toast.makeText(context, "Location permission granted", Toast.LENGTH_SHORT).show()
             onPermissionGranted()
-
-            // Fetch last known location
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null) {
-                    onLocationReceived(location)
-                } else {
-                    Log.d("RequestLocationPermission", "Last known location is null")
-                    onLocationReceived(null)
-                }
-            }.addOnFailureListener { e ->
-                Log.e("RequestLocationPermission", "Error retrieving location", e)
-            }
-
+            fetchLastKnownLocation(fusedLocationClient, onLocationReceived, context)
         } else {
             Toast.makeText(context, "Location permission denied", Toast.LENGTH_SHORT).show()
             onPermissionDenied()
         }
     }
 
-    // Request location permission
+    // Check permission and request if not granted
     LaunchedEffect(Unit) {
-        when (ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )) {
+        when (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)) {
             PackageManager.PERMISSION_GRANTED -> {
                 permissionGranted = true
                 onPermissionGranted()
-
-                // Fetch last known location
-                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                    onLocationReceived(location)
-                }.addOnFailureListener { e ->
-                    Log.e("RequestLocationPermission", "Error retrieving location", e)
-                }
+                fetchLastKnownLocation(fusedLocationClient, onLocationReceived, context)
             }
             else -> {
                 permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -1059,6 +1348,32 @@ fun RequestLocationPermission(
         }
     }
 }
+
+private fun fetchLastKnownLocation(
+    fusedLocationClient: FusedLocationProviderClient,
+    onLocationReceived: (Location?) -> Unit,
+    context: Context // Pass context as a parameter
+) {
+    // Check permission again before attempting to fetch the location
+    if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
+                onLocationReceived(location)
+            } else {
+                Log.d("RequestLocationPermission", "Last known location is null")
+                onLocationReceived(null)
+            }
+        }.addOnFailureListener { e ->
+            Log.e("RequestLocationPermission", "Error retrieving location", e)
+            onLocationReceived(null) // Optionally pass null to the callback on failure
+        }
+    } else {
+        Log.e("RequestLocationPermission", "Location permission required")
+        onLocationReceived(null) // Optionally handle lack of permission
+    }
+}
+
+
 @Composable
 fun LocationErrorState(error: String, onRetry: () -> Unit) {
     Column(
@@ -1180,5 +1495,58 @@ fun isValidEmail(email: String): Boolean {
     return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 }
 
+class LocationViewModel(application: Application) : AndroidViewModel(application) {
+    private val fusedLocationClient: FusedLocationProviderClient =
+        LocationServices.getFusedLocationProviderClient(application)
 
+    private val _address = MutableStateFlow("Fetching location...")
+    val address: StateFlow<String> = _address
+
+    private val _location = MutableStateFlow<Location?>(null)
+    val location: StateFlow<Location?> = _location
+
+    private val _locationError = MutableStateFlow<String?>(null)
+    val locationError: StateFlow<String?> = _locationError
+
+    fun fetchLocation(context: Context) {
+        // Check for permission
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            getLocation()
+        } else {
+            _locationError.value = "Location permission not granted"
+            // Optionally, inform the UI to request permissions
+        }
+    }
+
+    fun fetchLocation() {
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    _location.value = location
+                    viewModelScope.launch {
+                        _address.value = getAddressFromLocation(location)
+                    }
+                } else {
+                    _locationError.value = "Location not available"
+                }
+            }.addOnFailureListener { exception ->
+                _locationError.value = "Location error: ${exception.message}"
+            }
+        } catch (e: SecurityException) {
+            _locationError.value = "Location permission required"
+        }
+    }
+
+    private suspend fun getAddressFromLocation(location: Location): String {
+        val geocoder = Geocoder(getApplication(), Locale.getDefault())
+        return try {
+            val addressList = withContext(Dispatchers.IO) {
+                geocoder.getFromLocation(location.latitude, location.longitude, 1)
+            }
+            addressList?.firstOrNull()?.getAddressLine(0) ?: "Address not found"
+        } catch (e: Exception) {
+            "Error fetching address"
+        }
+    }
+}
 
