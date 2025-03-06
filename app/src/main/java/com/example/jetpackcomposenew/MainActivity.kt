@@ -51,9 +51,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddShoppingCart
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Person
@@ -65,7 +66,7 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -75,7 +76,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
@@ -91,7 +92,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.motion.widget.Debug.getLocation
@@ -159,8 +159,12 @@ data class Restaurant(
     val name: String,
     val imageResId: Int, // Use Int to hold drawable resource IDs
     val rating: Float,
-    val distance: Float
-)
+    val distance: Float,
+    val isVeg: Boolean,
+    val priceInRs: Double
+) {
+
+}
 
 class CartViewModel : ViewModel() {
     private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
@@ -199,19 +203,19 @@ fun AppNavigation(
 
     // Define the restaurant list here
     val restaurantList = listOf(
-        Restaurant("Maa Kali Restaurant", R.drawable.burger, 3.4f, 1.2f),
-        Restaurant("Aasha Biriyani House", R.drawable.burger, 4.5f, 2.3f),
-        Restaurant("Bharti Restaurant", R.drawable.burger, 4.0f, 1.5f),
-        Restaurant("Dolphin Restaurant", R.drawable.burger, 2.5f, 0.9f),
-        Restaurant("The Nawaab Restaurant", R.drawable.burger, 5.0f, 3.0f),
-        Restaurant("Amrita Restaurant", R.drawable.burger, 3.7f, 1.5f),
-        Restaurant("Monginis Restaurant", R.drawable.burger, 3.9f, 0.7f),
-        Restaurant("Mio Amore the Cake Shop", R.drawable.burger, 4.3f, 1.1f),
-        Restaurant("Prasenjit Hotel", R.drawable.burger, 4.4f, 2.0f),
-        Restaurant("MSR Cafe and Restaurant", R.drawable.burger, 4.8f, 0.8f),
-        Restaurant("Mira Store", R.drawable.burger, 4.3f, 1.4f),
-        Restaurant("Darjeeling Fast Food", R.drawable.burger, 4.7f, 1.6f),
-        Restaurant("Abar Khabo Tiffin House", R.drawable.burger, 1.0f, 2.2f)
+        Restaurant("Maa Kali Restaurant", R.drawable.maakali, 3.4f, 1.2f, isVeg = true, priceInRs = 250.0),
+        Restaurant("Aasha Biriyani House", R.drawable.ashabriyani, 4.5f, 2.3f, isVeg = false, priceInRs = 350.0),
+        Restaurant("Bharti Restaurant", R.drawable.bhartires, 4.0f, 1.5f, isVeg = true, priceInRs = 200.0),
+        Restaurant("Dolphin Restaurant", R.drawable.dolphinres, 2.5f, 0.9f, isVeg = false, priceInRs = 400.0),
+        Restaurant("The Nawaab Restaurant", R.drawable.nawaabres, 5.0f, 3.0f, isVeg = false, priceInRs = 500.0),
+        Restaurant("Amrita Restaurant", R.drawable.amritares, 3.7f, 1.5f, isVeg = true, priceInRs = 550.0),
+        Restaurant("Monginis Restaurant", R.drawable.monginisres, 3.9f, 0.7f, isVeg = false, priceInRs = 400.0),
+        Restaurant("Mio Amore the Cake Shop", R.drawable.mioamore, 4.3f, 1.1f, isVeg = true, priceInRs = 450.0),
+        Restaurant("Prasenjit Hotel", R.drawable.maachbhaaat, 4.4f, 2.0f, isVeg = true, priceInRs = 550.0),
+        Restaurant("MSR Cafe and Restaurant", R.drawable.msrcafe, 4.8f, 0.8f, isVeg = false, priceInRs = 600.0),
+        Restaurant("Mira Store", R.drawable.koreanbibimbaap, 4.3f, 1.4f, isVeg = true, priceInRs = 660.0),
+        Restaurant("Darjeeling Fast Food", R.drawable.darjeeling, 4.7f, 1.6f, isVeg = false, priceInRs = 650.0),
+        Restaurant("Abar Khabo Tiffin House", R.drawable.abarkhabotiffin, 1.0f, 2.2f, isVeg = false, priceInRs = 550.0)
     )
 
     // Listen for route changes to toggle bottom bar visibility
@@ -775,41 +779,49 @@ fun HomeScreen(
     val locationError by locationViewModel.locationError.collectAsState()
     val cartItems by cartViewModel.cartItems.collectAsState()
 
-    // State variable for search text
+    // Search and filter states
     var searchText by remember { mutableStateOf("") }
+    var showFilterDialog by remember { mutableStateOf(false) }
+    var minRating by remember { mutableStateOf(0f) }
+    var maxPrice by remember { mutableStateOf(Float.MAX_VALUE) }
+    var onlyVeg by remember { mutableStateOf(false) }
 
-    // Restaurant list
     val restaurantList = listOf(
-        Restaurant("Maa Kali Restaurant", R.drawable.burger, 3.4f, 1.2f),
-        Restaurant("Aasha Biriyani House", R.drawable.burger, 4.5f, 2.3f),
-        Restaurant("Bharti Restaurant", R.drawable.burger, 4.0f, 1.5f),
-        Restaurant("Dolphin Restaurant", R.drawable.burger, 2.5f, 0.9f),
-        Restaurant("The Nawaab Restaurant", R.drawable.burger, 5.0f, 3.0f),
-        Restaurant("Amrita Restaurant", R.drawable.burger, 3.7f, 1.5f),
-        Restaurant("Monginis Restaurant", R.drawable.burger, 3.9f, 0.7f),
-        Restaurant("Mio Amore the Cake Shop", R.drawable.burger, 4.3f, 1.1f),
-        Restaurant("Prasenjit Hotel", R.drawable.burger, 4.4f, 2.0f),
-        Restaurant("MSR Cafe and Restaurant", R.drawable.burger, 4.8f, 0.8f),
-        Restaurant("Mira Store", R.drawable.burger, 4.3f, 1.4f),
-        Restaurant("Darjeeling Fast Food", R.drawable.burger, 4.7f, 1.6f),
-        Restaurant("Abar Khabo Tiffin House", R.drawable.burger, 1.0f, 2.2f)
+        Restaurant("Maa Kali Restaurant", R.drawable.maakali, 3.4f, 1.2f, isVeg = true, priceInRs = 250.0),
+        Restaurant("Aasha Biriyani House", R.drawable.ashabriyani, 4.5f, 2.3f, isVeg = false, priceInRs = 350.0),
+        Restaurant("Bharti Restaurant", R.drawable.bhartires, 4.0f, 1.5f, isVeg = true, priceInRs = 200.0),
+        Restaurant("Dolphin Restaurant", R.drawable.dolphinres, 2.5f, 0.9f, isVeg = false, priceInRs = 400.0),
+        Restaurant("The Nawaab Restaurant", R.drawable.nawaabres, 5.0f, 3.0f, isVeg = false, priceInRs = 500.0),
+        Restaurant("Amrita Restaurant", R.drawable.amritares, 3.7f, 1.5f, isVeg = true, priceInRs = 550.0),
+        Restaurant("Monginis Restaurant", R.drawable.monginisres, 3.9f, 0.7f, isVeg = false, priceInRs = 400.0),
+        Restaurant("Mio Amore the Cake Shop", R.drawable.mioamore, 4.3f, 1.1f, isVeg = true, priceInRs = 450.0),
+        Restaurant("Prasenjit Hotel", R.drawable.maachbhaaat, 4.4f, 2.0f, isVeg = true, priceInRs = 550.0),
+        Restaurant("MSR Cafe and Restaurant", R.drawable.msrcafe, 4.8f, 0.8f, isVeg = false, priceInRs = 600.0),
+        Restaurant("Mira Store", R.drawable.koreanbibimbaap, 4.3f, 1.4f, isVeg = true, priceInRs = 660.0),
+        Restaurant("Darjeeling Fast Food", R.drawable.darjeeling, 4.7f, 1.6f, isVeg = false, priceInRs = 650.0),
+        Restaurant("Abar Khabo Tiffin House", R.drawable.abarkhabotiffin, 1.0f, 2.2f, isVeg = false, priceInRs = 550.0)
     )
 
+    // Filter logic
+    val filteredRestaurantList by remember(searchText, minRating, maxPrice, onlyVeg) {
+        mutableStateOf(
+            restaurantList.filter {
+                it.name.contains(searchText, ignoreCase = true) &&
+                        it.rating >= minRating &&
+                        it.priceInRs <= maxPrice &&
+                        (!onlyVeg || it.isVeg) &&
+                        it.distance <= 7.0f
+            }
+        )
+    }
 
-    // Request location permission and fetch address
     RequestLocationPermission(
         fusedLocationClient = fusedLocationClient,
         onLocationReceived = { loc ->
-            if (loc != null) {
-                Log.d("HomeScreen", "Location received: ${loc.latitude}, ${loc.longitude}")
-                location = loc
-            } else {
-                Log.d("HomeScreen", "Location is null")
-            }
+            location = loc
         }
     )
 
-    // Use LaunchedEffect to fetch address when location is received
     LaunchedEffect(location) {
         location?.let {
             val geocoder = Geocoder(context, Locale.getDefault())
@@ -820,10 +832,7 @@ fun HomeScreen(
                 fetchedAddress = addressList?.firstOrNull()?.getAddressLine(0) ?: "Address not found"
             } catch (e: Exception) {
                 fetchedAddress = "Error fetching address"
-                Log.e("HomeScreen", "Error fetching address: ${e.message}")
             }
-        } ?: run {
-            fetchedAddress = "Unable to fetch location"
         }
     }
 
@@ -837,20 +846,11 @@ fun HomeScreen(
                 TopAppBar(
                     title = { Text("Snapbites") },
                     actions = {
-                        IconButton(onClick = {
-                            navController.navigate("cart")
-                        }) {
+                        IconButton(onClick = { navController.navigate("cart") }) {
                             BadgedBox(
-                                badge = {
-                                    if (cartItems.isNotEmpty()) {
-                                        Badge { Text(cartItems.size.toString()) }
-                                    }
-                                }
+                                badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } }
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.ShoppingCart,
-                                    contentDescription = "Cart"
-                                )
+                                Icon(imageVector = Icons.Default.ShoppingCart, contentDescription = "Cart")
                             }
                         }
                     }
@@ -860,49 +860,24 @@ fun HomeScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
+                        .background(Color(0xFFE8F5E9))
                         .padding(paddingValues)
                 ) {
-                    // Pass the fetched address to DeliveryHeader
-                    item {
-                        DeliveryHeader(
-                            address = fetchedAddress,
-                            onManualAddress = {
-                                // Handle manual address entry
-                            },
-                            onAutomaticFetch = {
-                                locationViewModel.fetchLocation()
-                            }
-                        )
-                    }
+                    item { DeliveryHeader(address = fetchedAddress, onManualAddress = {}, onAutomaticFetch = { locationViewModel.fetchLocation() }) }
+                    item { CouponBanner(onOrderNowClick = { navController.navigate("restaurants") }) }
 
                     item {
-                        // Pass the navigation callback to the CouponBanner
-                        CouponBanner(
-                            onOrderNowClick = {
-                                navController.navigate("restaurants") // Adjust to your actual restaurant list route
-                            }
-                        )
-                    }
-
-                    item {
-                        // Search Bar
                         SearchBar(
                             searchText = searchText,
-                            onSearchTextChanged = { newText -> searchText = newText }
+                            onSearchTextChanged = { searchText = it },
+                            onFilterClick = { showFilterDialog = true }
                         )
                     }
 
-                    // Food Categories and Highest Rating Section
-                    item {
-                        FoodCategories(navController)
-                    }
+                    item { FoodCategories(navController) }
+                    item { HighestRatingSection(searchText, navController, cartViewModel) }
 
-                    item {
-                        HighestRatingSection(searchText = searchText, navController = navController, cartViewModel = cartViewModel)
-                    }
-
-                    // Restaurant List
-                    items(restaurantList) { restaurant ->
+                    items(filteredRestaurantList) { restaurant ->
                         RestaurantCard(restaurant) { selectedRestaurant ->
                             navController.navigate("details/${selectedRestaurant.name}")
                         }
@@ -910,7 +885,90 @@ fun HomeScreen(
                 }
             }
         )
+
+        if (showFilterDialog) {
+            FilterDialog(
+                minRating = minRating,
+                maxPrice = maxPrice,
+                onlyVeg = onlyVeg,
+                onMinRatingChange = { minRating = it },
+                onMaxPriceChange = { maxPrice = it },
+                onOnlyVegChange = { onlyVeg = it },
+                onDismiss = { showFilterDialog = false }
+            )
+        }
     }
+}
+
+@Composable
+fun SearchBar(searchText: String, onSearchTextChanged: (String) -> Unit, onFilterClick: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = onSearchTextChanged,
+            label = { Text("Search") },
+            modifier = Modifier.weight(1f),
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") }
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Button(
+            onClick = onFilterClick,
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+        ) {
+            Icon(imageVector = Icons.Default.FilterList, contentDescription = "Filter")
+        }
+    }
+}
+
+@Composable
+fun FilterDialog(
+    minRating: Float,
+    maxPrice: Float,
+    onlyVeg: Boolean,
+    onMinRatingChange: (Float) -> Unit,
+    onMaxPriceChange: (Float) -> Unit,
+    onOnlyVegChange: (Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Filters") },
+        text = {
+            Column {
+                Text("Minimum Rating: ${minRating.toInt()}+")
+                Slider(
+                    value = minRating,
+                    onValueChange = onMinRatingChange,
+                    valueRange = 0f..5f,
+                    steps = 4
+                )
+
+                Text("Max Price: ₹${maxPrice.toInt()}")
+                Slider(
+                    value = maxPrice,
+                    onValueChange = onMaxPriceChange,
+                    valueRange = 100f..500f,
+                    steps = 4
+                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = onlyVeg,
+                        onCheckedChange = onOnlyVegChange
+                    )
+                    Text("Veg Only")
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) { Text("Apply") }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 
@@ -1008,22 +1066,6 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
     }
 }
 
-
-@Composable
-fun SearchBar(searchText: String, onSearchTextChanged: (String) -> Unit) {
-    OutlinedTextField(
-        value = searchText,
-        onValueChange = onSearchTextChanged,
-        label = { Text(text = "Search") },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        singleLine = true,
-        leadingIcon = {
-            Icon(imageVector = Icons.Default.Search, contentDescription = "Search Icon")
-        },
-    )
-}
 
 @Composable
 fun HighestRatingSection(
@@ -1181,36 +1223,6 @@ fun CouponBanner(onOrderNowClick: () -> Unit) {
                     Text(text = "Order Now")
                 }
             }
-        }
-    }
-}
-
-// Example list of random restaurant names
-val randomRestaurantNames = listOf(
-    "Sushi Galaxy",
-    "Pizza Paradise",
-    "Burger Town",
-    "Curry King",
-    "Pasta Place",
-    "Taco Heaven",
-    "Seafood Shack",
-    "Steakhouse Delight",
-    "Vegan Bistro",
-    "Dumpling House"
-)
-@Composable
-fun RestaurantItem(onClick: () -> Unit) {
-    val restaurantName = randomRestaurantNames.random() // Pick a random name from the list
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp)
-            .clickable { onClick() }
-    ) {
-        Row(modifier = Modifier.padding(8.dp)) {
-            Text(text = restaurantName, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.weight(1f))
-            Text(text = "4.1 ⭐️", style = MaterialTheme.typography.bodySmall)
         }
     }
 }
