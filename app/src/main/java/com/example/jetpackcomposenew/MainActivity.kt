@@ -174,23 +174,26 @@ class CartViewModel : ViewModel() {
     val orderDetails: StateFlow<List<CartItem>?> = _orderDetails
 
     fun addItemToCart(item: CartItem) {
-        _cartItems.value += item
-        Log.d("CartViewModel", "Added item: ${item.name}. Current cart: ${_cartItems.value}")
+        _cartItems.value = _cartItems.value + item
+        val totalPrice = _cartItems.value.map { it.priceInRs }.sum()
+        Log.d("CartViewModel", "Added item: ₹${item.priceInRs}. Current cart total: ₹$totalPrice")
     }
 
     // Function to clear all items from the cart
     fun clearCart() {
         _cartItems.value = emptyList()
-        Log.d("CartViewModel", "Cart cleared. Current cart: ${_cartItems.value}")
+        Log.d("CartViewModel", "Cart cleared. Current cart total: ₹0")
     }
 
     // Function to place an order
     fun placeOrder() {
         _orderDetails.value = _cartItems.value
+        val totalPrice = _orderDetails.value?.map { it.priceInRs }?.sum() ?: 0
         clearCart()  // Clear the cart after placing the order
-        Log.d("CartViewModel", "Order placed. Order details: ${_orderDetails.value}")
+        Log.d("CartViewModel", "Order placed. Total price: ₹$totalPrice")
     }
 }
+
 
 
 @Composable
@@ -215,7 +218,40 @@ fun AppNavigation(
         Restaurant("MSR Cafe and Restaurant", R.drawable.msrcafe, 4.8f, 0.8f, isVeg = false, priceInRs = 600.0),
         Restaurant("Mira Store", R.drawable.koreanbibimbaap, 4.3f, 1.4f, isVeg = true, priceInRs = 660.0),
         Restaurant("Darjeeling Fast Food", R.drawable.darjeeling, 4.7f, 1.6f, isVeg = false, priceInRs = 650.0),
-        Restaurant("Abar Khabo Tiffin House", R.drawable.abarkhabotiffin, 1.0f, 2.2f, isVeg = false, priceInRs = 550.0)
+        Restaurant("Abar Khabo Tiffin House", R.drawable.abarkhabotiffin, 1.0f, 2.2f, isVeg = false, priceInRs = 550.0),
+        Restaurant("Spice Symphony", R.drawable.spicessymphony, 4.5f, 1.8f, isVeg = false, priceInRs = 750.0),
+        Restaurant("Pure Veg Delights", R.drawable.paneer, 4.2f, 3.5f, isVeg = true, priceInRs = 400.0),
+        Restaurant("Tandoori Junction", R.drawable.tandoorijunction, 4.8f, 2.0f, isVeg = false, priceInRs = 900.0),
+        Restaurant("Biryani House", R.drawable.chickenthali, 4.6f, 2.8f, isVeg = false, priceInRs = 650.0),
+        Restaurant("South Indian Flavors", R.drawable.southindianflavors, 4.3f, 3.0f, isVeg = true, priceInRs = 500.0),
+        Restaurant("Dilli Chaat Bhandar", R.drawable.salad, 4.0f, 1.5f, isVeg = true, priceInRs = 350.0),
+        Restaurant("Mughlai Darbar", R.drawable.mughlaidarbar, 4.7f, 2.5f, isVeg = false, priceInRs = 850.0),
+        Restaurant("The Punjabi Dhaba", R.drawable.spicessymphony, 4.4f, 3.2f, isVeg = false, priceInRs = 600.0),
+        Restaurant("Coastal Curry", R.drawable.maachbhaaat, 4.5f, 2.7f, isVeg = false, priceInRs = 720.0),
+        Restaurant("Rajasthani Rasoi", R.drawable.rajasthanifood, 4.1f, 3.8f, isVeg = true, priceInRs = 450.0),
+        Restaurant("The Grand Thali", R.drawable.grandthali, 4.6f, 2.1f, isVeg = true, priceInRs = 550.0),
+        Restaurant("Hyderabadi Biryani Center", R.drawable.muttonbiriyani, 4.9f, 1.9f, isVeg = false, priceInRs = 800.0),
+        Restaurant("Bengali Bhoj", R.drawable.muttonbiriyani, 4.3f, 3.4f, isVeg = false, priceInRs = 580.0),
+        Restaurant("Malabar Spices", R.drawable.chickenthali, 4.2f, 2.9f, isVeg = false, priceInRs = 620.0),
+        Restaurant("Gujarati Swad", R.drawable.dalparatha, 4.0f, 3.7f, isVeg = true, priceInRs = 400.0),
+        Restaurant("Udupi Swad Sagar", R.drawable.taco_supreme, 4.5f, 2.3f, isVeg = true, priceInRs = 520.0),
+        Restaurant("Chennai Dosa Corner", R.drawable.southindianflavors, 4.3f, 2.6f, isVeg = true, priceInRs = 490.0),
+        Restaurant("Lucknowi Kebab", R.drawable.rajasthanifood, 4.8f, 1.7f, isVeg = false, priceInRs = 770.0),
+        Restaurant("Swad Punjab Da", R.drawable.spicessymphony, 4.5f, 3.1f, isVeg = false, priceInRs = 750.0),
+        Restaurant("Flavors of China", R.drawable.mughlaidarbar, 4.2f, 5.5f, isVeg = false, priceInRs = 620.0),
+        Restaurant("Dilli Chaat Bhandar", R.drawable.aloochaat, 4.7f, 2.0f, isVeg = true, priceInRs = 250.0),
+        Restaurant("Ming's Dynasty", R.drawable.darjeeling, 4.3f, 3.8f, isVeg = false, priceInRs = 680.0),
+        Restaurant("Biryani Junction", R.drawable.muttonbiriyani, 4.6f, 4.0f, isVeg = false, priceInRs = 900.0),
+        Restaurant("Hakka House", R.drawable.chickenawab, 4.1f, 6.2f, isVeg = false, priceInRs = 580.0),
+        Restaurant("Rajdhani Thali", R.drawable.grandthali, 4.8f, 1.5f, isVeg = true, priceInRs = 650.0),
+        Restaurant("Dragon Wok", R.drawable.chickenmomos, 4.0f, 5.0f, isVeg = false, priceInRs = 720.0),
+        Restaurant("Udupi Bhoj Sagar", R.drawable.southindianflavors, 4.4f, 3.3f, isVeg = true, priceInRs = 300.0),
+        Restaurant("Golden Chopsticks", R.drawable.dalparatha, 3.9f, 4.8f, isVeg = false, priceInRs = 550.0),
+        Restaurant("Tandoori Nights", R.drawable.tandoorijunction, 4.5f, 2.9f, isVeg = false, priceInRs = 850.0),
+        Restaurant("Chowman Express", R.drawable.mughlaidarbar, 4.2f, 3.7f, isVeg = false, priceInRs = 600.0),
+        Restaurant("Bengali Rasoi", R.drawable.maachbhaaat, 4.6f, 2.5f, isVeg = false, priceInRs = 500.0),
+        Restaurant("Sichuan Delights", R.drawable.msrcafe, 4.0f, 6.0f, isVeg = false, priceInRs = 700.0),
+        Restaurant("Gujju Rasoi", R.drawable.dalparatha, 4.3f, 3.2f, isVeg = true, priceInRs = 480.0)
     )
 
     // Listen for route changes to toggle bottom bar visibility
@@ -486,7 +522,7 @@ fun OrderScreen(cartViewModel: CartViewModel) {
                 Text(text = "Order Details", style = MaterialTheme.typography.headlineSmall)
                 Spacer(modifier = Modifier.height(8.dp))
                 orderDetails!!.forEach { orderItem ->
-                    Text(text = "${orderItem.name} - $${orderItem.priceInRs}", modifier = Modifier.padding(4.dp))
+                    Text(text = "${orderItem.name} - ₹${orderItem.priceInRs}", modifier = Modifier.padding(4.dp))
                 }
             }
         }
@@ -622,8 +658,8 @@ fun RestaurantDetailsScreen(navController: NavController, cartViewModel: CartVie
 @Composable
 fun BurgerDetails() {
     Column(modifier = Modifier.padding(16.dp)) {
-        Text(text = "Burger Anzay", style = MaterialTheme.typography.headlineSmall)
-        Text(text = "Indian, Fast food, Burger", style = MaterialTheme.typography.titleSmall)
+        Text(text = "Enjoy Your Meal", style = MaterialTheme.typography.headlineSmall)
+        Text(text = "Authentic Indian Restaurant", style = MaterialTheme.typography.titleSmall)
         Spacer(modifier = Modifier.height(4.dp))
         Row {
             Text(text = "4.3 ⭐️")
@@ -648,16 +684,46 @@ fun CouponButton() {
 
 data class FoodItemData(
     val name: String,
-    val price: Double,
+    val priceInRs: Double,
     @DrawableRes val imageRes: Int
 )
 
 @Composable
 fun FoodItemSection(cartViewModel: CartViewModel) {
     val foodItems = listOf(
-        FoodItemData("Cheese Burger", 15.0, R.drawable.cheese_burger),
-        FoodItemData("Veggie Burger", 10.0, R.drawable.burger),
-        FoodItemData("Chicken Burger", 12.0, R.drawable.cheese_burger)
+        FoodItemData("Chicken Kawab", 120.0, R.drawable.chickenawab),
+        FoodItemData("Soya Chaap", 140.0, R.drawable.soyachaap),
+        FoodItemData("Mutton Biriyani", 220.0, R.drawable.muttonbiriyani),
+        FoodItemData("Pulao", 140.0, R.drawable.pulao),
+        FoodItemData("Paneer", 120.0, R.drawable.paneer),
+        FoodItemData("Egg Thali", 150.0, R.drawable.eggthali),
+        FoodItemData("Mutton", 450.0, R.drawable.mutton),
+        FoodItemData("Maach Bhaat", 250.0, R.drawable.maachbhaaat),
+        FoodItemData("Chicken Thali", 350.0, R.drawable.chickenthali),
+        FoodItemData("Veg Thali", 150.0, R.drawable.vegthali),
+        FoodItemData("Salad", 80.0, R.drawable.salad),
+        FoodItemData("Cheese Burger", 150.0, R.drawable.cheese_burger),
+        FoodItemData("Veggie Burger", 100.0, R.drawable.burger),
+        FoodItemData("Chicken Burger", 120.0, R.drawable.cheese_burger),
+        FoodItemData("Paneer Tikka", 150.0, R.drawable.paneer),
+        FoodItemData("Chicken Biryani", 200.0, R.drawable.muttonbiriyani),
+        FoodItemData("Veg Hakka Noodles", 180.0, R.drawable.chickenhakkanoodles),
+        FoodItemData("Tandoori Chicken", 300.0, R.drawable.chillichicken),
+        FoodItemData("Dal Makhani", 200.0, R.drawable.dalparatha),
+        FoodItemData("Prawn Fried Rice", 220.0, R.drawable.friedrice),
+        FoodItemData("Butter Naan", 50.0, R.drawable.rajasthanifood),
+        FoodItemData("Manchurian Gravy", 170.0, R.drawable.tandoorijunction),
+        FoodItemData("Egg Roll", 100.0, R.drawable.springrolls),
+        FoodItemData("Chicken Lollipop", 180.0, R.drawable.chillichicken),
+        FoodItemData("Schezwan Fried Rice", 200.0, R.drawable.friedrice),
+        FoodItemData("Fish Tandoori", 280.0, R.drawable.fishtandoori),
+        FoodItemData("Gobi Manchurian", 160.0, R.drawable.manchurian),
+        FoodItemData("Mutton Rogan Josh", 320.0, R.drawable.mutton),
+        FoodItemData("Chili Chicken", 190.0, R.drawable.chillichicken),
+        FoodItemData("Spring Rolls", 140.0, R.drawable.springrolls),
+        FoodItemData("Pani Puri", 80.0, R.drawable.panipuri),
+        FoodItemData("Gulab Jamun", 90.0, R.drawable.gulabjamun),
+        FoodItemData("Chicken 65", 210.0, R.drawable.chillichicken)
     )
 
     Column(modifier = Modifier.padding(16.dp)) {
@@ -710,7 +776,7 @@ fun FoodItem(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "₹${foodItem.price}",
+                text = "₹${foodItem.priceInRs}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
@@ -727,7 +793,7 @@ fun FoodItem(
         // Add Button
         Button(
             onClick = {
-                val cartItem = CartItem(name = foodItem.name, priceInRs = foodItem.price)
+                val cartItem = CartItem(name = foodItem.name, priceInRs = foodItem.priceInRs)
                 cartViewModel.addItemToCart(cartItem)
             },
             modifier = Modifier.align(Alignment.CenterVertically),
@@ -799,7 +865,40 @@ fun HomeScreen(
         Restaurant("MSR Cafe and Restaurant", R.drawable.msrcafe, 4.8f, 0.8f, isVeg = false, priceInRs = 600.0),
         Restaurant("Mira Store", R.drawable.koreanbibimbaap, 4.3f, 1.4f, isVeg = true, priceInRs = 660.0),
         Restaurant("Darjeeling Fast Food", R.drawable.darjeeling, 4.7f, 1.6f, isVeg = false, priceInRs = 650.0),
-        Restaurant("Abar Khabo Tiffin House", R.drawable.abarkhabotiffin, 1.0f, 2.2f, isVeg = false, priceInRs = 550.0)
+        Restaurant("Abar Khabo Tiffin House", R.drawable.abarkhabotiffin, 1.0f, 2.2f, isVeg = false, priceInRs = 550.0),
+        Restaurant("Spice Symphony", R.drawable.spicessymphony, 4.5f, 1.8f, isVeg = false, priceInRs = 750.0),
+        Restaurant("Pure Veg Delights", R.drawable.paneer, 4.2f, 3.5f, isVeg = true, priceInRs = 400.0),
+        Restaurant("Tandoori Junction", R.drawable.tandoorijunction, 4.8f, 2.0f, isVeg = false, priceInRs = 900.0),
+        Restaurant("Biryani House", R.drawable.chickenthali, 4.6f, 2.8f, isVeg = false, priceInRs = 650.0),
+        Restaurant("South Indian Flavors", R.drawable.southindianflavors, 4.3f, 3.0f, isVeg = true, priceInRs = 500.0),
+        Restaurant("Dilli Chaat Bhandar", R.drawable.salad, 4.0f, 1.5f, isVeg = true, priceInRs = 350.0),
+        Restaurant("Mughlai Darbar", R.drawable.mughlaidarbar, 4.7f, 2.5f, isVeg = false, priceInRs = 850.0),
+        Restaurant("The Punjabi Dhaba", R.drawable.spicessymphony, 4.4f, 3.2f, isVeg = false, priceInRs = 600.0),
+        Restaurant("Coastal Curry", R.drawable.maachbhaaat, 4.5f, 2.7f, isVeg = false, priceInRs = 720.0),
+        Restaurant("Rajasthani Rasoi", R.drawable.rajasthanifood, 4.1f, 3.8f, isVeg = true, priceInRs = 450.0),
+        Restaurant("The Grand Thali", R.drawable.grandthali, 4.6f, 2.1f, isVeg = true, priceInRs = 550.0),
+        Restaurant("Hyderabadi Biryani Center", R.drawable.muttonbiriyani, 4.9f, 1.9f, isVeg = false, priceInRs = 800.0),
+        Restaurant("Bengali Bhoj", R.drawable.muttonbiriyani, 4.3f, 3.4f, isVeg = false, priceInRs = 580.0),
+        Restaurant("Malabar Spices", R.drawable.chickenthali, 4.2f, 2.9f, isVeg = false, priceInRs = 620.0),
+        Restaurant("Gujarati Swad", R.drawable.dalparatha, 4.0f, 3.7f, isVeg = true, priceInRs = 400.0),
+        Restaurant("Udupi Swad Sagar", R.drawable.taco_supreme, 4.5f, 2.3f, isVeg = true, priceInRs = 520.0),
+        Restaurant("Chennai Dosa Corner", R.drawable.southindianflavors, 4.3f, 2.6f, isVeg = true, priceInRs = 490.0),
+        Restaurant("Lucknowi Kebab", R.drawable.rajasthanifood, 4.8f, 1.7f, isVeg = false, priceInRs = 770.0),
+        Restaurant("Swad Punjab Da", R.drawable.spicessymphony, 4.5f, 3.1f, isVeg = false, priceInRs = 750.0),
+        Restaurant("Flavors of China", R.drawable.mughlaidarbar, 4.2f, 5.5f, isVeg = false, priceInRs = 620.0),
+        Restaurant("Dilli Chaat Bhandar", R.drawable.aloochaat, 4.7f, 2.0f, isVeg = true, priceInRs = 250.0),
+        Restaurant("Ming's Dynasty", R.drawable.darjeeling, 4.3f, 3.8f, isVeg = false, priceInRs = 680.0),
+        Restaurant("Biryani Junction", R.drawable.muttonbiriyani, 4.6f, 4.0f, isVeg = false, priceInRs = 900.0),
+        Restaurant("Hakka House", R.drawable.chickenawab, 4.1f, 6.2f, isVeg = false, priceInRs = 580.0),
+        Restaurant("Rajdhani Thali", R.drawable.grandthali, 4.8f, 1.5f, isVeg = true, priceInRs = 650.0),
+        Restaurant("Dragon Wok", R.drawable.chickenmomos, 4.0f, 5.0f, isVeg = false, priceInRs = 720.0),
+        Restaurant("Udupi Bhoj Sagar", R.drawable.southindianflavors, 4.4f, 3.3f, isVeg = true, priceInRs = 300.0),
+        Restaurant("Golden Chopsticks", R.drawable.dalparatha, 3.9f, 4.8f, isVeg = false, priceInRs = 550.0),
+        Restaurant("Tandoori Nights", R.drawable.tandoorijunction, 4.5f, 2.9f, isVeg = false, priceInRs = 850.0),
+        Restaurant("Chowman Express", R.drawable.mughlaidarbar, 4.2f, 3.7f, isVeg = false, priceInRs = 600.0),
+        Restaurant("Bengali Rasoi", R.drawable.maachbhaaat, 4.6f, 2.5f, isVeg = false, priceInRs = 500.0),
+        Restaurant("Sichuan Delights", R.drawable.msrcafe, 4.0f, 6.0f, isVeg = false, priceInRs = 700.0),
+        Restaurant("Gujju Rasoi", R.drawable.dalparatha, 4.3f, 3.2f, isVeg = true, priceInRs = 480.0)
     )
 
     // Filter logic
@@ -1033,7 +1132,7 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
                     ) {
                         Text(item.name, style = MaterialTheme.typography.bodyLarge)
                         Spacer(modifier = Modifier.weight(1f))
-                        Text("$${item.priceInRs}", style = MaterialTheme.typography.bodyLarge)
+                        Text("₹${item.priceInRs}", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }
@@ -1042,7 +1141,7 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
 
             // Display total price
             Text(
-                text = "Total: $${"%.2f".format(totalPrice)}",
+                text = "Total: ₹${"%.2f".format(totalPrice)}",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.align(Alignment.End)
             )
@@ -1074,6 +1173,28 @@ fun HighestRatingSection(
     cartViewModel: CartViewModel // Pass cartViewModel as a parameter
 ) {
     val items = listOf(
+        "Veg Thali" to R.drawable.vegthali,
+        "Maach Bhaat" to R.drawable.maachbhaaat,
+        "Egg Thali" to R.drawable.eggthali,
+        "Chicken Thali" to R.drawable.chickenthali,
+        "Chilly Chicken" to R.drawable.chillichicken,
+        "Masala Dosa" to R.drawable.southindianflavors,
+        "Chicken Legpiece" to R.drawable.spicessymphony,
+        "Tandoori junction Pizza" to R.drawable.tandoorijunction,
+        "Dal Tarka Chicken " to R.drawable.mughlaidarbar,
+        "Maharaja Thali" to R.drawable.rajasthanifood,
+        "Grand Deluxe Thali" to R.drawable.grandthali,
+        "Dal Paratha" to R.drawable.dalparatha,
+        "Aloo chaat" to R.drawable.aloochaat,
+        "Gulab Jamun" to R.drawable.gulabjamun,
+        "Pani Puri" to R.drawable.panipuri,
+        "Chicken Hakka Noodles" to R.drawable.chickenhakkanoodles,
+        "Fish Tandoori" to R.drawable.fishtandoori,
+        "Gobi Chicken Manchurian" to R.drawable.manchurian,
+        "Spring Rolls" to R.drawable.springrolls,
+        "Mutton Biriyani" to R.drawable.muttonbiriyani,
+        "Paneer" to R.drawable.paneer,
+        "Veg Salad" to R.drawable.salad,
         "Snap Pizza" to R.drawable.snap_pizza,
         "Taco Supreme" to R.drawable.taco_supreme,
         "Deluxe Burger" to R.drawable.burger,
@@ -1133,7 +1254,7 @@ fun HighestRatedItem(
                 // Add to Cart Button
                 Button(
                     onClick = {
-                        val item = CartItem(name = itemName, priceInRs = 9.99) // Replace with the actual price if available
+                        val item = CartItem(name = itemName, priceInRs = 249.00) // Replace with the actual price if available
                         cartViewModel.addItemToCart(item)
                     },
                     colors = ButtonDefaults.buttonColors(
