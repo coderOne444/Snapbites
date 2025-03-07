@@ -174,23 +174,26 @@ class CartViewModel : ViewModel() {
     val orderDetails: StateFlow<List<CartItem>?> = _orderDetails
 
     fun addItemToCart(item: CartItem) {
-        _cartItems.value += item
-        Log.d("CartViewModel", "Added item: ${item.name}. Current cart: ${_cartItems.value}")
+        _cartItems.value = _cartItems.value + item
+        val totalPrice = _cartItems.value.map { it.priceInRs }.sum()
+        Log.d("CartViewModel", "Added item: ₹${item.priceInRs}. Current cart total: ₹$totalPrice")
     }
 
     // Function to clear all items from the cart
     fun clearCart() {
         _cartItems.value = emptyList()
-        Log.d("CartViewModel", "Cart cleared. Current cart: ${_cartItems.value}")
+        Log.d("CartViewModel", "Cart cleared. Current cart total: ₹0")
     }
 
     // Function to place an order
     fun placeOrder() {
         _orderDetails.value = _cartItems.value
+        val totalPrice = _orderDetails.value?.map { it.priceInRs }?.sum() ?: 0
         clearCart()  // Clear the cart after placing the order
-        Log.d("CartViewModel", "Order placed. Order details: ${_orderDetails.value}")
+        Log.d("CartViewModel", "Order placed. Total price: ₹$totalPrice")
     }
 }
+
 
 
 @Composable
@@ -486,7 +489,7 @@ fun OrderScreen(cartViewModel: CartViewModel) {
                 Text(text = "Order Details", style = MaterialTheme.typography.headlineSmall)
                 Spacer(modifier = Modifier.height(8.dp))
                 orderDetails!!.forEach { orderItem ->
-                    Text(text = "${orderItem.name} - $${orderItem.priceInRs}", modifier = Modifier.padding(4.dp))
+                    Text(text = "${orderItem.name} - ₹${orderItem.priceInRs}", modifier = Modifier.padding(4.dp))
                 }
             }
         }
@@ -622,8 +625,8 @@ fun RestaurantDetailsScreen(navController: NavController, cartViewModel: CartVie
 @Composable
 fun BurgerDetails() {
     Column(modifier = Modifier.padding(16.dp)) {
-        Text(text = "Burger Anzay", style = MaterialTheme.typography.headlineSmall)
-        Text(text = "Indian, Fast food, Burger", style = MaterialTheme.typography.titleSmall)
+        Text(text = "Enjoy Your Meal", style = MaterialTheme.typography.headlineSmall)
+        Text(text = "Authentic Indian Restaurant", style = MaterialTheme.typography.titleSmall)
         Spacer(modifier = Modifier.height(4.dp))
         Row {
             Text(text = "4.3 ⭐️")
@@ -648,16 +651,27 @@ fun CouponButton() {
 
 data class FoodItemData(
     val name: String,
-    val price: Double,
+    val priceInRs: Double,
     @DrawableRes val imageRes: Int
 )
 
 @Composable
 fun FoodItemSection(cartViewModel: CartViewModel) {
     val foodItems = listOf(
-        FoodItemData("Cheese Burger", 15.0, R.drawable.cheese_burger),
-        FoodItemData("Veggie Burger", 10.0, R.drawable.burger),
-        FoodItemData("Chicken Burger", 12.0, R.drawable.cheese_burger)
+        FoodItemData("Chicken Kawab", 120.0, R.drawable.chickenawab),
+        FoodItemData("Soya Chaap", 140.0, R.drawable.soyachaap),
+        FoodItemData("Mutton Biriyani", 220.0, R.drawable.muttonbiriyani),
+        FoodItemData("Pulao", 140.0, R.drawable.pulao),
+        FoodItemData("Paneer", 120.0, R.drawable.paneer),
+        FoodItemData("Egg Thali", 150.0, R.drawable.eggthali),
+        FoodItemData("Mutton", 450.0, R.drawable.mutton),
+        FoodItemData("Maach Bhaat", 250.0, R.drawable.maachbhaaat),
+        FoodItemData("Chicken Thali", 350.0, R.drawable.chickenthali),
+        FoodItemData("Veg Thali", 150.0, R.drawable.vegthali),
+        FoodItemData("Salad", 80.0, R.drawable.salad),
+        FoodItemData("Cheese Burger", 150.0, R.drawable.cheese_burger),
+        FoodItemData("Veggie Burger", 100.0, R.drawable.burger),
+        FoodItemData("Chicken Burger", 120.0, R.drawable.cheese_burger)
     )
 
     Column(modifier = Modifier.padding(16.dp)) {
@@ -710,7 +724,7 @@ fun FoodItem(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "₹${foodItem.price}",
+                text = "₹${foodItem.priceInRs}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
@@ -727,7 +741,7 @@ fun FoodItem(
         // Add Button
         Button(
             onClick = {
-                val cartItem = CartItem(name = foodItem.name, priceInRs = foodItem.price)
+                val cartItem = CartItem(name = foodItem.name, priceInRs = foodItem.priceInRs)
                 cartViewModel.addItemToCart(cartItem)
             },
             modifier = Modifier.align(Alignment.CenterVertically),
@@ -1033,7 +1047,7 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
                     ) {
                         Text(item.name, style = MaterialTheme.typography.bodyLarge)
                         Spacer(modifier = Modifier.weight(1f))
-                        Text("$${item.priceInRs}", style = MaterialTheme.typography.bodyLarge)
+                        Text("₹${item.priceInRs}", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }
@@ -1042,7 +1056,7 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
 
             // Display total price
             Text(
-                text = "Total: $${"%.2f".format(totalPrice)}",
+                text = "Total: ₹${"%.2f".format(totalPrice)}",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.align(Alignment.End)
             )
@@ -1074,6 +1088,13 @@ fun HighestRatingSection(
     cartViewModel: CartViewModel // Pass cartViewModel as a parameter
 ) {
     val items = listOf(
+        "Veg Thali" to R.drawable.vegthali,
+        "Maach Bhaat" to R.drawable.maachbhaaat,
+        "Egg Thali" to R.drawable.eggthali,
+        "Chicken Thali" to R.drawable.chickenthali,
+        "Mutton Biriyani" to R.drawable.muttonbiriyani,
+        "Paneer" to R.drawable.paneer,
+        "Veg Salad" to R.drawable.salad,
         "Snap Pizza" to R.drawable.snap_pizza,
         "Taco Supreme" to R.drawable.taco_supreme,
         "Deluxe Burger" to R.drawable.burger,
@@ -1133,7 +1154,7 @@ fun HighestRatedItem(
                 // Add to Cart Button
                 Button(
                     onClick = {
-                        val item = CartItem(name = itemName, priceInRs = 9.99) // Replace with the actual price if available
+                        val item = CartItem(name = itemName, priceInRs = 249.00) // Replace with the actual price if available
                         cartViewModel.addItemToCart(item)
                     },
                     colors = ButtonDefaults.buttonColors(
