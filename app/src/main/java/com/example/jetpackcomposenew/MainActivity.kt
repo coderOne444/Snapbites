@@ -66,6 +66,7 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -174,26 +175,23 @@ class CartViewModel : ViewModel() {
     val orderDetails: StateFlow<List<CartItem>?> = _orderDetails
 
     fun addItemToCart(item: CartItem) {
-        _cartItems.value = _cartItems.value + item
-        val totalPrice = _cartItems.value.map { it.priceInRs }.sum()
-        Log.d("CartViewModel", "Added item: ₹${item.priceInRs}. Current cart total: ₹$totalPrice")
+        _cartItems.value += item
+        Log.d("CartViewModel", "Added item: ${item.name}. Current cart: ${_cartItems.value}")
     }
 
     // Function to clear all items from the cart
     fun clearCart() {
         _cartItems.value = emptyList()
-        Log.d("CartViewModel", "Cart cleared. Current cart total: ₹0")
+        Log.d("CartViewModel", "Cart cleared. Current cart: ${_cartItems.value}")
     }
 
     // Function to place an order
     fun placeOrder() {
         _orderDetails.value = _cartItems.value
-        val totalPrice = _orderDetails.value?.map { it.priceInRs }?.sum() ?: 0
         clearCart()  // Clear the cart after placing the order
-        Log.d("CartViewModel", "Order placed. Total price: ₹$totalPrice")
+        Log.d("CartViewModel", "Order placed. Order details: ${_orderDetails.value}")
     }
 }
-
 
 
 @Composable
@@ -219,39 +217,39 @@ fun AppNavigation(
         Restaurant("Mira Store", R.drawable.koreanbibimbaap, 4.3f, 1.4f, isVeg = true, priceInRs = 660.0),
         Restaurant("Darjeeling Fast Food", R.drawable.darjeeling, 4.7f, 1.6f, isVeg = false, priceInRs = 650.0),
         Restaurant("Abar Khabo Tiffin House", R.drawable.abarkhabotiffin, 1.0f, 2.2f, isVeg = false, priceInRs = 550.0),
-        Restaurant("Spice Symphony", R.drawable.spicessymphony, 4.5f, 1.8f, isVeg = false, priceInRs = 750.0),
+        Restaurant("Spice Symphony", R.drawable.spicessymphony, 4.5f, 1.8f, isVeg = false, priceInRs = 480.0),
         Restaurant("Pure Veg Delights", R.drawable.paneer, 4.2f, 3.5f, isVeg = true, priceInRs = 400.0),
-        Restaurant("Tandoori Junction", R.drawable.tandoorijunction, 4.8f, 2.0f, isVeg = false, priceInRs = 900.0),
-        Restaurant("Biryani House", R.drawable.chickenthali, 4.6f, 2.8f, isVeg = false, priceInRs = 650.0),
+        Restaurant("Tandoori Junction", R.drawable.tandoorijunction, 4.8f, 2.0f, isVeg = false, priceInRs = 500.0),
+        Restaurant("Biryani House", R.drawable.chickenthali, 4.6f, 2.8f, isVeg = false, priceInRs = 350.0),
         Restaurant("South Indian Flavors", R.drawable.southindianflavors, 4.3f, 3.0f, isVeg = true, priceInRs = 500.0),
         Restaurant("Dilli Chaat Bhandar", R.drawable.salad, 4.0f, 1.5f, isVeg = true, priceInRs = 350.0),
         Restaurant("Mughlai Darbar", R.drawable.mughlaidarbar, 4.7f, 2.5f, isVeg = false, priceInRs = 850.0),
         Restaurant("The Punjabi Dhaba", R.drawable.spicessymphony, 4.4f, 3.2f, isVeg = false, priceInRs = 600.0),
-        Restaurant("Coastal Curry", R.drawable.maachbhaaat, 4.5f, 2.7f, isVeg = false, priceInRs = 720.0),
+        Restaurant("Coastal Curry", R.drawable.maachbhaaat, 4.5f, 2.7f, isVeg = false, priceInRs = 220.0),
         Restaurant("Rajasthani Rasoi", R.drawable.rajasthanifood, 4.1f, 3.8f, isVeg = true, priceInRs = 450.0),
         Restaurant("The Grand Thali", R.drawable.grandthali, 4.6f, 2.1f, isVeg = true, priceInRs = 550.0),
         Restaurant("Hyderabadi Biryani Center", R.drawable.muttonbiriyani, 4.9f, 1.9f, isVeg = false, priceInRs = 800.0),
-        Restaurant("Bengali Bhoj", R.drawable.muttonbiriyani, 4.3f, 3.4f, isVeg = false, priceInRs = 580.0),
+        Restaurant("Bengali Bhoj", R.drawable.chickenawab, 4.3f, 3.4f, isVeg = false, priceInRs = 580.0),
         Restaurant("Malabar Spices", R.drawable.chickenthali, 4.2f, 2.9f, isVeg = false, priceInRs = 620.0),
-        Restaurant("Gujarati Swad", R.drawable.dalparatha, 4.0f, 3.7f, isVeg = true, priceInRs = 400.0),
-        Restaurant("Udupi Swad Sagar", R.drawable.taco_supreme, 4.5f, 2.3f, isVeg = true, priceInRs = 520.0),
+        Restaurant("Gujarati Swad", R.drawable.rajasthanifood, 4.0f, 3.7f, isVeg = true, priceInRs = 400.0),
+        Restaurant("Udupi Sagar", R.drawable.taco_supreme, 4.5f, 2.3f, isVeg = true, priceInRs = 520.0),
         Restaurant("Chennai Dosa Corner", R.drawable.southindianflavors, 4.3f, 2.6f, isVeg = true, priceInRs = 490.0),
-        Restaurant("Lucknowi Kebab", R.drawable.rajasthanifood, 4.8f, 1.7f, isVeg = false, priceInRs = 770.0),
+        Restaurant("Lucknowi Kebab", R.drawable.muttonbiriyani, 4.8f, 1.7f, isVeg = false, priceInRs = 770.0),
         Restaurant("Swad Punjab Da", R.drawable.spicessymphony, 4.5f, 3.1f, isVeg = false, priceInRs = 750.0),
-        Restaurant("Flavors of China", R.drawable.mughlaidarbar, 4.2f, 5.5f, isVeg = false, priceInRs = 620.0),
-        Restaurant("Dilli Chaat Bhandar", R.drawable.aloochaat, 4.7f, 2.0f, isVeg = true, priceInRs = 250.0),
-        Restaurant("Ming's Dynasty", R.drawable.darjeeling, 4.3f, 3.8f, isVeg = false, priceInRs = 680.0),
-        Restaurant("Biryani Junction", R.drawable.muttonbiriyani, 4.6f, 4.0f, isVeg = false, priceInRs = 900.0),
-        Restaurant("Hakka House", R.drawable.chickenawab, 4.1f, 6.2f, isVeg = false, priceInRs = 580.0),
-        Restaurant("Rajdhani Thali", R.drawable.grandthali, 4.8f, 1.5f, isVeg = true, priceInRs = 650.0),
-        Restaurant("Dragon Wok", R.drawable.chickenmomos, 4.0f, 5.0f, isVeg = false, priceInRs = 720.0),
-        Restaurant("Udupi Bhoj Sagar", R.drawable.southindianflavors, 4.4f, 3.3f, isVeg = true, priceInRs = 300.0),
+        Restaurant("Flavors of China", R.drawable.chickenmomos, 4.2f, 5.5f, isVeg = false, priceInRs = 620.0),
+        Restaurant("Dilli Chaat Bhandar", R.drawable.dalparatha, 4.7f, 2.0f, isVeg = true, priceInRs = 250.0),
+        Restaurant("Ming's Dynasty", R.drawable.chickenmomos, 4.3f, 3.8f, isVeg = false, priceInRs = 680.0),
+        Restaurant("Biryani Junction", R.drawable.chickenawab, 4.6f, 4.0f, isVeg = false, priceInRs = 900.0),
+        Restaurant("Hakka House", R.drawable.chickenhakkanoodles, 4.1f, 6.2f, isVeg = false, priceInRs = 580.0),
+        Restaurant("Rajdhani Thali", R.drawable.rajasthanifood, 4.8f, 1.5f, isVeg = true, priceInRs = 650.0),
+        Restaurant("Dragon Wok", R.drawable.nawaabres, 4.0f, 5.0f, isVeg = false, priceInRs = 720.0),
+        Restaurant("Udupi Sagar", R.drawable.southindianflavors, 4.4f, 3.3f, isVeg = true, priceInRs = 300.0),
         Restaurant("Golden Chopsticks", R.drawable.dalparatha, 3.9f, 4.8f, isVeg = false, priceInRs = 550.0),
         Restaurant("Tandoori Nights", R.drawable.tandoorijunction, 4.5f, 2.9f, isVeg = false, priceInRs = 850.0),
-        Restaurant("Chowman Express", R.drawable.mughlaidarbar, 4.2f, 3.7f, isVeg = false, priceInRs = 600.0),
-        Restaurant("Bengali Rasoi", R.drawable.maachbhaaat, 4.6f, 2.5f, isVeg = false, priceInRs = 500.0),
-        Restaurant("Sichuan Delights", R.drawable.msrcafe, 4.0f, 6.0f, isVeg = false, priceInRs = 700.0),
-        Restaurant("Gujju Rasoi", R.drawable.dalparatha, 4.3f, 3.2f, isVeg = true, priceInRs = 480.0)
+        Restaurant("Chowman Express", R.drawable.msrcafe, 4.2f, 3.7f, isVeg = false, priceInRs = 600.0),
+        Restaurant("Bengali Rasoi", R.drawable.fishtandoori, 4.6f, 2.5f, isVeg = false, priceInRs = 500.0),
+        Restaurant("Sichuan Delights", R.drawable.pulao, 4.0f, 6.0f, isVeg = false, priceInRs = 700.0),
+        Restaurant("Gujju Rasoi", R.drawable.gulabjamun, 4.3f, 3.2f, isVeg = true, priceInRs = 480.0)
     )
 
     // Listen for route changes to toggle bottom bar visibility
@@ -310,7 +308,6 @@ fun AppNavigation(
 private fun shouldShowBottomBar(route: String?): Boolean {
     return route != "splash"
 }
-
 
 @Composable
 fun CategoryScreen(
@@ -504,7 +501,6 @@ fun BottomNavBar(navController: NavController) {
     }
 }
 
-
 @Composable
 fun OrderScreen(cartViewModel: CartViewModel) {
     val orderDetails by cartViewModel.orderDetails.collectAsState()
@@ -522,7 +518,7 @@ fun OrderScreen(cartViewModel: CartViewModel) {
                 Text(text = "Order Details", style = MaterialTheme.typography.headlineSmall)
                 Spacer(modifier = Modifier.height(8.dp))
                 orderDetails!!.forEach { orderItem ->
-                    Text(text = "${orderItem.name} - ₹${orderItem.priceInRs}", modifier = Modifier.padding(4.dp))
+                    Text(text = "${orderItem.name} - $${orderItem.priceInRs}", modifier = Modifier.padding(4.dp))
                 }
             }
         }
@@ -654,7 +650,6 @@ fun RestaurantDetailsScreen(navController: NavController, cartViewModel: CartVie
     }
 }
 
-
 @Composable
 fun BurgerDetails() {
     Column(modifier = Modifier.padding(16.dp)) {
@@ -684,7 +679,7 @@ fun CouponButton() {
 
 data class FoodItemData(
     val name: String,
-    val priceInRs: Double,
+    val price: Double,
     @DrawableRes val imageRes: Int
 )
 
@@ -704,26 +699,7 @@ fun FoodItemSection(cartViewModel: CartViewModel) {
         FoodItemData("Salad", 80.0, R.drawable.salad),
         FoodItemData("Cheese Burger", 150.0, R.drawable.cheese_burger),
         FoodItemData("Veggie Burger", 100.0, R.drawable.burger),
-        FoodItemData("Chicken Burger", 120.0, R.drawable.cheese_burger),
-        FoodItemData("Paneer Tikka", 150.0, R.drawable.paneer),
-        FoodItemData("Chicken Biryani", 200.0, R.drawable.muttonbiriyani),
-        FoodItemData("Veg Hakka Noodles", 180.0, R.drawable.chickenhakkanoodles),
-        FoodItemData("Tandoori Chicken", 300.0, R.drawable.chillichicken),
-        FoodItemData("Dal Makhani", 200.0, R.drawable.dalparatha),
-        FoodItemData("Prawn Fried Rice", 220.0, R.drawable.friedrice),
-        FoodItemData("Butter Naan", 50.0, R.drawable.rajasthanifood),
-        FoodItemData("Manchurian Gravy", 170.0, R.drawable.tandoorijunction),
-        FoodItemData("Egg Roll", 100.0, R.drawable.springrolls),
-        FoodItemData("Chicken Lollipop", 180.0, R.drawable.chillichicken),
-        FoodItemData("Schezwan Fried Rice", 200.0, R.drawable.friedrice),
-        FoodItemData("Fish Tandoori", 280.0, R.drawable.fishtandoori),
-        FoodItemData("Gobi Manchurian", 160.0, R.drawable.manchurian),
-        FoodItemData("Mutton Rogan Josh", 320.0, R.drawable.mutton),
-        FoodItemData("Chili Chicken", 190.0, R.drawable.chillichicken),
-        FoodItemData("Spring Rolls", 140.0, R.drawable.springrolls),
-        FoodItemData("Pani Puri", 80.0, R.drawable.panipuri),
-        FoodItemData("Gulab Jamun", 90.0, R.drawable.gulabjamun),
-        FoodItemData("Chicken 65", 210.0, R.drawable.chillichicken)
+        FoodItemData("Chicken Burger", 120.0, R.drawable.cheese_burger)
     )
 
     Column(modifier = Modifier.padding(16.dp)) {
@@ -743,7 +719,6 @@ fun FoodItemSection(cartViewModel: CartViewModel) {
         }
     }
 }
-
 
 @Composable
 fun FoodItem(
@@ -776,7 +751,7 @@ fun FoodItem(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "₹${foodItem.priceInRs}",
+                text = "₹${foodItem.price}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
@@ -793,7 +768,7 @@ fun FoodItem(
         // Add Button
         Button(
             onClick = {
-                val cartItem = CartItem(name = foodItem.name, priceInRs = foodItem.priceInRs)
+                val cartItem = CartItem(name = foodItem.name, priceInRs = foodItem.price)
                 cartViewModel.addItemToCart(cartItem)
             },
             modifier = Modifier.align(Alignment.CenterVertically),
@@ -803,7 +778,6 @@ fun FoodItem(
         }
     }
 }
-
 
 @Composable
 fun SplashScreen(navController: NavController) {
@@ -878,38 +852,40 @@ fun HomeScreen(
         Restaurant("Rajasthani Rasoi", R.drawable.rajasthanifood, 4.1f, 3.8f, isVeg = true, priceInRs = 450.0),
         Restaurant("The Grand Thali", R.drawable.grandthali, 4.6f, 2.1f, isVeg = true, priceInRs = 550.0),
         Restaurant("Hyderabadi Biryani Center", R.drawable.muttonbiriyani, 4.9f, 1.9f, isVeg = false, priceInRs = 800.0),
-        Restaurant("Bengali Bhoj", R.drawable.muttonbiriyani, 4.3f, 3.4f, isVeg = false, priceInRs = 580.0),
+        Restaurant("Bengali Bhoj", R.drawable.chickenawab, 4.3f, 3.4f, isVeg = false, priceInRs = 580.0),
         Restaurant("Malabar Spices", R.drawable.chickenthali, 4.2f, 2.9f, isVeg = false, priceInRs = 620.0),
-        Restaurant("Gujarati Swad", R.drawable.dalparatha, 4.0f, 3.7f, isVeg = true, priceInRs = 400.0),
-        Restaurant("Udupi Swad Sagar", R.drawable.taco_supreme, 4.5f, 2.3f, isVeg = true, priceInRs = 520.0),
+        Restaurant("Gujarati Swad", R.drawable.rajasthanifood, 4.0f, 3.7f, isVeg = true, priceInRs = 400.0),
+        Restaurant("Udupi Sagar", R.drawable.taco_supreme, 4.5f, 2.3f, isVeg = true, priceInRs = 520.0),
         Restaurant("Chennai Dosa Corner", R.drawable.southindianflavors, 4.3f, 2.6f, isVeg = true, priceInRs = 490.0),
-        Restaurant("Lucknowi Kebab", R.drawable.rajasthanifood, 4.8f, 1.7f, isVeg = false, priceInRs = 770.0),
+        Restaurant("Lucknowi Kebab", R.drawable.muttonbiriyani, 4.8f, 1.7f, isVeg = false, priceInRs = 770.0),
         Restaurant("Swad Punjab Da", R.drawable.spicessymphony, 4.5f, 3.1f, isVeg = false, priceInRs = 750.0),
-        Restaurant("Flavors of China", R.drawable.mughlaidarbar, 4.2f, 5.5f, isVeg = false, priceInRs = 620.0),
-        Restaurant("Dilli Chaat Bhandar", R.drawable.aloochaat, 4.7f, 2.0f, isVeg = true, priceInRs = 250.0),
-        Restaurant("Ming's Dynasty", R.drawable.darjeeling, 4.3f, 3.8f, isVeg = false, priceInRs = 680.0),
-        Restaurant("Biryani Junction", R.drawable.muttonbiriyani, 4.6f, 4.0f, isVeg = false, priceInRs = 900.0),
-        Restaurant("Hakka House", R.drawable.chickenawab, 4.1f, 6.2f, isVeg = false, priceInRs = 580.0),
-        Restaurant("Rajdhani Thali", R.drawable.grandthali, 4.8f, 1.5f, isVeg = true, priceInRs = 650.0),
-        Restaurant("Dragon Wok", R.drawable.chickenmomos, 4.0f, 5.0f, isVeg = false, priceInRs = 720.0),
-        Restaurant("Udupi Bhoj Sagar", R.drawable.southindianflavors, 4.4f, 3.3f, isVeg = true, priceInRs = 300.0),
+        Restaurant("Flavors of China", R.drawable.chickenmomos, 4.2f, 5.5f, isVeg = false, priceInRs = 620.0),
+        Restaurant("Dilli Chaat Bhandar", R.drawable.dalparatha, 4.7f, 2.0f, isVeg = true, priceInRs = 250.0),
+        Restaurant("Ming's Dynasty", R.drawable.chickenmomos, 4.3f, 3.8f, isVeg = false, priceInRs = 680.0),
+        Restaurant("Biryani Junction", R.drawable.chickenawab, 4.6f, 4.0f, isVeg = false, priceInRs = 900.0),
+        Restaurant("Hakka House", R.drawable.chickenhakkanoodles, 4.1f, 6.2f, isVeg = false, priceInRs = 580.0),
+        Restaurant("Rajdhani Thali", R.drawable.rajasthanifood, 4.8f, 1.5f, isVeg = true, priceInRs = 650.0),
+        Restaurant("Dragon Wok", R.drawable.nawaabres, 4.0f, 5.0f, isVeg = false, priceInRs = 720.0),
+        Restaurant("Udupi Sagar", R.drawable.southindianflavors, 4.4f, 3.3f, isVeg = true, priceInRs = 300.0),
         Restaurant("Golden Chopsticks", R.drawable.dalparatha, 3.9f, 4.8f, isVeg = false, priceInRs = 550.0),
         Restaurant("Tandoori Nights", R.drawable.tandoorijunction, 4.5f, 2.9f, isVeg = false, priceInRs = 850.0),
-        Restaurant("Chowman Express", R.drawable.mughlaidarbar, 4.2f, 3.7f, isVeg = false, priceInRs = 600.0),
-        Restaurant("Bengali Rasoi", R.drawable.maachbhaaat, 4.6f, 2.5f, isVeg = false, priceInRs = 500.0),
-        Restaurant("Sichuan Delights", R.drawable.msrcafe, 4.0f, 6.0f, isVeg = false, priceInRs = 700.0),
-        Restaurant("Gujju Rasoi", R.drawable.dalparatha, 4.3f, 3.2f, isVeg = true, priceInRs = 480.0)
+        Restaurant("Chowman Express", R.drawable.msrcafe, 4.2f, 3.7f, isVeg = false, priceInRs = 600.0),
+        Restaurant("Bengali Rasoi", R.drawable.fishtandoori, 4.6f, 2.5f, isVeg = false, priceInRs = 500.0),
+        Restaurant("Sichuan Delights", R.drawable.pulao, 4.0f, 6.0f, isVeg = false, priceInRs = 700.0),
+        Restaurant("Gujju Rasoi", R.drawable.gulabjamun, 4.3f, 3.2f, isVeg = true, priceInRs = 480.0)
     )
 
-    // Filter logic
-    val filteredRestaurantList by remember(searchText, minRating, maxPrice, onlyVeg) {
+    var within7km by remember { mutableStateOf(true) }  // Add this state
+
+// Modify the filtered restaurant list logic
+    val filteredRestaurantList by remember(searchText, minRating, maxPrice, onlyVeg, within7km) {
         mutableStateOf(
             restaurantList.filter {
                 it.name.contains(searchText, ignoreCase = true) &&
                         it.rating >= minRating &&
                         it.priceInRs <= maxPrice &&
                         (!onlyVeg || it.isVeg) &&
-                        it.distance <= 7.0f
+                        (!within7km || it.distance <= 7.0f)  // Apply within 7km filter
             }
         )
     }
@@ -990,9 +966,11 @@ fun HomeScreen(
                 minRating = minRating,
                 maxPrice = maxPrice,
                 onlyVeg = onlyVeg,
+                within7km = within7km,  // Pass the within7km state
                 onMinRatingChange = { minRating = it },
                 onMaxPriceChange = { maxPrice = it },
                 onOnlyVegChange = { onlyVeg = it },
+                onWithin7kmChange = { within7km = it },  // Handle the change
                 onDismiss = { showFilterDialog = false }
             )
         }
@@ -1001,14 +979,22 @@ fun HomeScreen(
 
 @Composable
 fun SearchBar(searchText: String, onSearchTextChanged: (String) -> Unit, onFilterClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         OutlinedTextField(
             value = searchText,
             onValueChange = onSearchTextChanged,
             label = { Text("Search") },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(24.dp)), // Rounded corners
             singleLine = true,
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") }
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+            shape = RoundedCornerShape(24.dp) // Rounded corners applied here
         )
         Spacer(modifier = Modifier.width(8.dp))
         Button(
@@ -1021,14 +1007,17 @@ fun SearchBar(searchText: String, onSearchTextChanged: (String) -> Unit, onFilte
     }
 }
 
+
 @Composable
 fun FilterDialog(
     minRating: Float,
     maxPrice: Float,
     onlyVeg: Boolean,
+    within7km: Boolean,  // Add this parameter
     onMinRatingChange: (Float) -> Unit,
     onMaxPriceChange: (Float) -> Unit,
     onOnlyVegChange: (Boolean) -> Unit,
+    onWithin7kmChange: (Boolean) -> Unit,  // Add this callback
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -1057,19 +1046,23 @@ fun FilterDialog(
                         checked = onlyVeg,
                         onCheckedChange = onOnlyVegChange
                     )
-                    Text("Veg Only")
+                    Text("Only Veg")
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = within7km,
+                        onCheckedChange = onWithin7kmChange
+                    )
+                    Text("Within 7km")
                 }
             }
         },
         confirmButton = {
             Button(onClick = onDismiss) { Text("Apply") }
-        },
-        dismissButton = {
-            Button(onClick = onDismiss) { Text("Cancel") }
         }
     )
 }
-
 
 @Composable
 fun RestaurantCard(
@@ -1081,22 +1074,48 @@ fun RestaurantCard(
             .padding(8.dp)
             .clickable { onClick(restaurant) }
     ) {
-        Column {
-            // Display restaurant image using the drawable resource ID
-            Image(
-                painter = painterResource(id = restaurant.imageResId), // This should use imageResId
-                contentDescription = restaurant.name,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp),
-                contentScale = ContentScale.Crop
-            )
-            Text(text = restaurant.name, style = MaterialTheme.typography.headlineSmall)
-            Text(text = "Rating: ${restaurant.rating}", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "Distance: ${restaurant.distance} km", style = MaterialTheme.typography.bodyMedium)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFFC8E6C9)) // Light green background for the card
+        ) {
+            Column {
+                // Display restaurant image using the drawable resource ID
+                Image(
+                    painter = painterResource(id = restaurant.imageResId),
+                    contentDescription = restaurant.name,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp),
+                    contentScale = ContentScale.Crop
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF4CAF50)) // Dark green background for text section
+                        .padding(8.dp) // Padding for spacing
+                ) {
+                    Text(
+                        text = restaurant.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White // White text for contrast
+                    )
+                    Text(
+                        text = "Rating: ${restaurant.rating}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Distance: ${restaurant.distance} km",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White
+                    )
+                }
+            }
         }
     }
 }
+
 
 @Composable
 fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
@@ -1132,7 +1151,7 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
                     ) {
                         Text(item.name, style = MaterialTheme.typography.bodyLarge)
                         Spacer(modifier = Modifier.weight(1f))
-                        Text("₹${item.priceInRs}", style = MaterialTheme.typography.bodyLarge)
+                        Text("$${item.priceInRs}", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }
@@ -1141,7 +1160,7 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
 
             // Display total price
             Text(
-                text = "Total: ₹${"%.2f".format(totalPrice)}",
+                text = "Total: $${"%.2f".format(totalPrice)}",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.align(Alignment.End)
             )
@@ -1165,7 +1184,6 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
     }
 }
 
-
 @Composable
 fun HighestRatingSection(
     searchText: String,
@@ -1173,28 +1191,6 @@ fun HighestRatingSection(
     cartViewModel: CartViewModel // Pass cartViewModel as a parameter
 ) {
     val items = listOf(
-        "Veg Thali" to R.drawable.vegthali,
-        "Maach Bhaat" to R.drawable.maachbhaaat,
-        "Egg Thali" to R.drawable.eggthali,
-        "Chicken Thali" to R.drawable.chickenthali,
-        "Chilly Chicken" to R.drawable.chillichicken,
-        "Masala Dosa" to R.drawable.southindianflavors,
-        "Chicken Legpiece" to R.drawable.spicessymphony,
-        "Tandoori junction Pizza" to R.drawable.tandoorijunction,
-        "Dal Tarka Chicken " to R.drawable.mughlaidarbar,
-        "Maharaja Thali" to R.drawable.rajasthanifood,
-        "Grand Deluxe Thali" to R.drawable.grandthali,
-        "Dal Paratha" to R.drawable.dalparatha,
-        "Aloo chaat" to R.drawable.aloochaat,
-        "Gulab Jamun" to R.drawable.gulabjamun,
-        "Pani Puri" to R.drawable.panipuri,
-        "Chicken Hakka Noodles" to R.drawable.chickenhakkanoodles,
-        "Fish Tandoori" to R.drawable.fishtandoori,
-        "Gobi Chicken Manchurian" to R.drawable.manchurian,
-        "Spring Rolls" to R.drawable.springrolls,
-        "Mutton Biriyani" to R.drawable.muttonbiriyani,
-        "Paneer" to R.drawable.paneer,
-        "Veg Salad" to R.drawable.salad,
         "Snap Pizza" to R.drawable.snap_pizza,
         "Taco Supreme" to R.drawable.taco_supreme,
         "Deluxe Burger" to R.drawable.burger,
@@ -1232,7 +1228,8 @@ fun HighestRatedItem(
         modifier = Modifier
             .width(200.dp)
             .padding(end = 16.dp)
-            .clickable { onClick() } // Click action for the card
+            .clickable { onClick() }, // Click action for the card
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFC8E6C9)) // Medium-light green background
     ) {
         Column {
             // Image for the restaurant item
@@ -1245,20 +1242,20 @@ fun HighestRatedItem(
             )
             Column(modifier = Modifier.padding(8.dp)) {
                 // Item name
-                Text(text = itemName, style = MaterialTheme.typography.titleMedium)
+                Text(text = itemName, style = MaterialTheme.typography.titleMedium, color = Color.Black)
 
                 // Additional info about the item
-                Text(text = "4.4 ⭐️ 156+ reviews", style = MaterialTheme.typography.labelSmall)
-                Text(text = "1.5km • 15min", style = MaterialTheme.typography.labelSmall)
+                Text(text = "4.4 ⭐ 156+ reviews", style = MaterialTheme.typography.labelSmall, color = Color.Black)
+                Text(text = "1.5km • 15min", style = MaterialTheme.typography.labelSmall, color = Color.Black)
 
                 // Add to Cart Button
                 Button(
                     onClick = {
-                        val item = CartItem(name = itemName, priceInRs = 249.00) // Replace with the actual price if available
+                        val item = CartItem(name = itemName, priceInRs = 9.99) // Replace with the actual price if available
                         cartViewModel.addItemToCart(item)
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50), // Use containerColor for Material 3
+                        containerColor = Color(0xFF4CAF50), // Green button
                         contentColor = Color.White // White text color
                     )
                 ) {
@@ -1420,7 +1417,6 @@ fun AddressOptionDialog(
     )
 }
 
-
 @Composable
 fun ManualAddressInput(onSubmit: (String) -> Unit) {
     var manualAddress by remember { mutableStateOf("") }
@@ -1574,7 +1570,6 @@ fun SignUpScreen(navController: NavController) {
     }
 }
 
-
 @Composable
 fun LoginScreen(navController: NavController) {
     val context = LocalContext.current
@@ -1650,7 +1645,6 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
             // Optionally, inform the UI to request permissions
         }
     }
-
     fun fetchLocation() {
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { location ->
@@ -1682,4 +1676,3 @@ class LocationViewModel(application: Application) : AndroidViewModel(application
         }
     }
 }
-
