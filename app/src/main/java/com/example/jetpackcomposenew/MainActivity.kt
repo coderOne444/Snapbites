@@ -40,6 +40,9 @@ import android.net.Uri
 import androidx.activity.viewModels
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.runtime.LaunchedEffect
@@ -83,6 +86,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -93,6 +97,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -133,6 +138,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         WindowCompat.setDecorFitsSystemWindows(window, false) // Enable edge-to-edge layout
 
         // Initialize the FusedLocationProviderClient
@@ -197,11 +203,11 @@ class CartViewModel : ViewModel() {
     }
 
     // Function to place an order
-    fun placeOrder() {
-        _orderDetails.value = _cartItems.value
-        clearCart()  // Clear the cart after placing the order
-        Log.d("CartViewModel", "Order placed. Order details: ${_orderDetails.value}")
-    }
+    //fun placeOrder() {
+      //  _orderDetails.value = _cartItems.value
+    //    clearCart()  // Clear the cart after placing the order
+   //     Log.d("CartViewModel", "Order placed. Order details: ${_orderDetails.value}")
+   // }
 }
 
 
@@ -714,14 +720,66 @@ fun BurgerDetails() {
 
 @Composable
 fun CouponButton() {
-    Button(
-        onClick = { /* Handle coupon claim */ },
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F)),
-        modifier = Modifier.padding(16.dp)
-    ) {
-        Text(text = "Claim Free Cheese!")
+    var isSpinning by remember { mutableStateOf(false) }
+    var discount by remember { mutableStateOf<Int?>(null) }
+    var showResultDialog by remember { mutableStateOf(false) }
+
+    val rotation = remember { Animatable(0f) }
+
+    LaunchedEffect(isSpinning) {
+        if (isSpinning) {
+            // Rotate 3 full circles + random offset
+            val targetRotation = 1080f + (0..360).random()
+            rotation.animateTo(
+                targetValue = targetRotation,
+                animationSpec = tween(durationMillis = 2000, easing = FastOutSlowInEasing)
+            )
+            discount = (10..90 step 5).toList().random()
+            showResultDialog = true
+            isSpinning = false
+        }
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .graphicsLayer { rotationZ = rotation.value }
+                .background(Color.Yellow, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "🎡",
+                style = MaterialTheme.typography.headlineMedium
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = { isSpinning = true },
+            enabled = !isSpinning,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F)),
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(text = "Click to get Discount upto 90%!")
+        }
+    }
+
+    if (showResultDialog && discount != null) {
+        AlertDialog(
+            onDismissRequest = { showResultDialog = false },
+            title = { Text("Congratulations!") },
+            text = { Text("You got a discount of $discount%! 🎉") },
+            confirmButton = {
+                TextButton(onClick = { showResultDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
+
 
 
 
@@ -1511,7 +1569,7 @@ fun CouponBanner(onOrderNowClick: () -> Unit) {
 @Composable
 fun DeliveryHeader(
     address: String,
-    userLocation: Location?, // Ensure this parameter is included
+    userLocation: Location?, // Nullable user location
     onManualAddress: () -> Unit,
     onAutomaticFetch: () -> Unit
 ) {
@@ -1541,13 +1599,14 @@ fun DeliveryHeader(
                 Text(text = address, style = MaterialTheme.typography.titleMedium)
             }
 
-            // Display user location if available
-            userLocation?.let {
-                Text(
-                    text = "Your Location: ${it.latitude}, ${it.longitude}",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
+            // Show user location or a fallback message
+            Text(
+                text = userLocation?.let {
+                    "Your Location: ${"%.4f".format(it.latitude)}, ${"%.4f".format(it.longitude)}"
+                } ?: "Fetching your location...",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (userLocation != null) Color.Black else Color.Gray
+            )
         }
     }
 
@@ -1627,12 +1686,11 @@ fun RequestLocationPermission(
     fusedLocationClient: FusedLocationProviderClient,
     onPermissionGranted: () -> Unit = {},
     onPermissionDenied: () -> Unit = {},
-    onLocationReceived: (Location?) -> Unit = {} // Callback when location is received
+    onLocationReceived: (Location?) -> Unit = {}
 ) {
     val context = LocalContext.current
     var permissionGranted by remember { mutableStateOf(false) }
 
-    // Create a launcher to request location permission
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -1647,7 +1705,6 @@ fun RequestLocationPermission(
         }
     }
 
-    // Check permission and request if not granted
     LaunchedEffect(Unit) {
         when (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)) {
             PackageManager.PERMISSION_GRANTED -> {
