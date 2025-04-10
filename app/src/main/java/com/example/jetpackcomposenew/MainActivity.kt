@@ -42,6 +42,7 @@ import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -94,6 +95,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -191,15 +193,23 @@ class CartViewModel : ViewModel() {
     private val _orderDetails = MutableStateFlow<List<CartItem>?>(null)
     val orderDetails: StateFlow<List<CartItem>?> = _orderDetails
 
+    private val _discountPercentage = MutableStateFlow(0)
+    val discountPercentage: StateFlow<Int> = _discountPercentage
+
+    fun applyDiscount(discount: Int) {
+        _discountPercentage.value = discount
+        Log.d("CartViewModel", "Applied discount: $discount%")
+    }
+
     fun addItemToCart(item: CartItem) {
         _cartItems.value += item
         Log.d("CartViewModel", "Added item: ${item.name}. Current cart: ${_cartItems.value}")
     }
 
-    // Function to clear all items from the cart
     fun clearCart() {
         _cartItems.value = emptyList()
-        Log.d("CartViewModel", "Cart cleared. Current cart: ${_cartItems.value}")
+        _discountPercentage.value = 0
+        Log.d("CartViewModel", "Cart cleared.")
     }
 
     // Function to place an order
@@ -718,7 +728,10 @@ fun RestaurantDetailsScreen(
         BurgerDetails()
 
         // Coupon Button
-        CouponButton()
+        CouponButton { discount ->
+            cartViewModel.applyDiscount(discount)
+            Toast.makeText(context, "You got a $discount% discount!", Toast.LENGTH_SHORT).show()
+        }
 
         // Food Items with the CartViewModel
         FoodItemSection(cartViewModel)
@@ -763,69 +776,28 @@ fun BurgerDetails() {
 }
 
 @Composable
-fun CouponButton() {
+fun CouponButton(onDiscountGenerated: (Int) -> Unit) {
+    val scope = rememberCoroutineScope()
     var isSpinning by remember { mutableStateOf(false) }
-    var discount by remember { mutableStateOf<Int?>(null) }
-    var showResultDialog by remember { mutableStateOf(false) }
 
-    val rotation = remember { Animatable(0f) }
-
-    LaunchedEffect(isSpinning) {
-        if (isSpinning) {
-            // Rotate 3 full circles + random offset
-            val targetRotation = 1080f + (0..360).random()
-            rotation.animateTo(
-                targetValue = targetRotation,
-                animationSpec = tween(durationMillis = 2000, easing = FastOutSlowInEasing)
-            )
-            discount = (10..90 step 5).toList().random()
-            showResultDialog = true
-            isSpinning = false
-        }
-    }
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .graphicsLayer { rotationZ = rotation.value }
-                .background(Color.Yellow, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "🎡",
-                style = MaterialTheme.typography.headlineMedium
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = { isSpinning = true },
-            enabled = !isSpinning,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F)),
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(text = "Click to get Discount upto 90%!")
-        }
-    }
-
-    if (showResultDialog && discount != null) {
-        AlertDialog(
-            onDismissRequest = { showResultDialog = false },
-            title = { Text("Congratulations!") },
-            text = { Text("You got a discount of $discount%! 🎉") },
-            confirmButton = {
-                TextButton(onClick = { showResultDialog = false }) {
-                    Text("OK")
+    Button(
+        onClick = {
+            if (!isSpinning) {
+                isSpinning = true
+                scope.launch {
+                    delay(2000) // simulate wheel spinning
+                    val discount = listOf(10, 20, 30, 40, 50, 60, 70, 80, 90).random()
+                    onDiscountGenerated(discount)
+                    isSpinning = false
                 }
             }
-        )
+        },
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F)),
+        modifier = Modifier.padding(16.dp)
+    ) {
+        Text(if (isSpinning) "Spinning..." else "Click to get Discount up to 90%!")
     }
 }
-
-
-
 
 @Composable
 fun FoodItemSection(cartViewModel: CartViewModel) {
@@ -1427,14 +1399,14 @@ fun RestaurantCard(
 
 @Composable
 fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
-    // Get cart items from CartViewModel
     val cartItems by cartViewModel.cartItems.collectAsState()
+    val discountPercentage by cartViewModel.discountPercentage.collectAsState()
 
-    // Calculate total price
-    val totalPrice = cartItems.sumOf { it.priceInRs }
-
-    // Access the context for Toast
     val context = LocalContext.current
+
+    val originalTotal = cartItems.sumOf { it.priceInRs }
+    val discountAmount = (originalTotal * discountPercentage) / 100
+    val discountedTotal = originalTotal - discountAmount
 
     Column(
         modifier = Modifier
@@ -1445,7 +1417,6 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
 
         if (cartItems.isEmpty()) {
             Text("Your cart is empty")
-            // Button to navigate back to Home
             Button(onClick = { navController.navigate("home") }) {
                 Text("Go to Home")
             }
@@ -1459,28 +1430,29 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
                     ) {
                         Text(item.name, style = MaterialTheme.typography.bodyLarge)
                         Spacer(modifier = Modifier.weight(1f))
-                        Text("$${item.priceInRs}", style = MaterialTheme.typography.bodyLarge)
+                        Text("₹${item.priceInRs}", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Display total price
+            Text("Original: ₹${"%.2f".format(originalTotal)}")
+            if (discountPercentage > 0) {
+                Text("Discount: $discountPercentage% (-₹${"%.2f".format(discountAmount)})")
+            }
+
             Text(
-                text = "Total: $${"%.2f".format(totalPrice)}",
+                text = "Total: ₹${"%.2f".format(discountedTotal)}",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.align(Alignment.End)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Place Order Button
             Button(
                 onClick = {
-                    // Handle place order action
                     Toast.makeText(context, "Order placed successfully", Toast.LENGTH_SHORT).show()
-                    // Clear cart after placing the order
                     cartViewModel.clearCart()
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -1491,6 +1463,7 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
         }
     }
 }
+
 
 @Composable
 fun HighestRatingSection(
