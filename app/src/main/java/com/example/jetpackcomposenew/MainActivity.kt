@@ -60,6 +60,8 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -68,6 +70,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -158,14 +162,21 @@ data class CartItem(
 )
 data class Restaurant(
     val name: String,
-    val imageResId: Int, // Use Int to hold drawable resource IDs
-    val rating: Float,
+    val imageResId: Int,
+    var rating: Float,
     val distance: Float,
     val isVeg: Boolean,
-    val priceInRs: Double
-) {
-
-}
+    val priceInRs: Double,
+    var userRating: Float = 0f, // Ensure this is mutable
+    var numberOfRatings: Int = 0,
+    val latitude: Double, // Add latitude
+    val longitude: Double // Add longitude
+)
+data class FoodItemData(
+    val name: String,
+    val price: Double,
+    @DrawableRes val imageRes: Int
+)
 
 class CartViewModel : ViewModel() {
     private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
@@ -204,52 +215,9 @@ fun AppNavigation(
 
     // Define the restaurant list here
     val restaurantList = listOf(
-        Restaurant("Maa Kali Restaurant", R.drawable.maakali, 3.4f, 1.2f, isVeg = true, priceInRs = 250.0),
-        Restaurant("Aasha Biriyani House", R.drawable.ashabriyani, 4.5f, 2.3f, isVeg = false, priceInRs = 350.0),
-        Restaurant("Bharti Restaurant", R.drawable.bhartires, 4.0f, 1.5f, isVeg = true, priceInRs = 200.0),
-        Restaurant("Dolphin Restaurant", R.drawable.dolphinres, 2.5f, 0.9f, isVeg = false, priceInRs = 400.0),
-        Restaurant("The Nawaab Restaurant", R.drawable.nawaabres, 5.0f, 3.0f, isVeg = false, priceInRs = 500.0),
-        Restaurant("Amrita Restaurant", R.drawable.amritares, 3.7f, 1.5f, isVeg = true, priceInRs = 550.0),
-        Restaurant("Monginis Restaurant", R.drawable.monginisres, 3.9f, 0.7f, isVeg = false, priceInRs = 400.0),
-        Restaurant("Mio Amore the Cake Shop", R.drawable.mioamore, 4.3f, 1.1f, isVeg = true, priceInRs = 450.0),
-        Restaurant("Prasenjit Hotel", R.drawable.maachbhaaat, 4.4f, 2.0f, isVeg = true, priceInRs = 550.0),
-        Restaurant("MSR Cafe and Restaurant", R.drawable.msrcafe, 4.8f, 0.8f, isVeg = false, priceInRs = 600.0),
-        Restaurant("Mira Store", R.drawable.koreanbibimbaap, 4.3f, 1.4f, isVeg = true, priceInRs = 660.0),
-        Restaurant("Darjeeling Fast Food", R.drawable.darjeeling, 4.7f, 1.6f, isVeg = false, priceInRs = 650.0),
-        Restaurant("Abar Khabo Tiffin House", R.drawable.abarkhabotiffin, 1.0f, 2.2f, isVeg = false, priceInRs = 550.0),
-        Restaurant("Spice Symphony", R.drawable.spicessymphony, 4.5f, 1.8f, isVeg = false, priceInRs = 480.0),
-        Restaurant("Pure Veg Delights", R.drawable.paneer, 4.2f, 3.5f, isVeg = true, priceInRs = 400.0),
-        Restaurant("Tandoori Junction", R.drawable.tandoorijunction, 4.8f, 2.0f, isVeg = false, priceInRs = 500.0),
-        Restaurant("Biryani House", R.drawable.chickenthali, 4.6f, 2.8f, isVeg = false, priceInRs = 350.0),
-        Restaurant("South Indian Flavors", R.drawable.southindianflavors, 4.3f, 3.0f, isVeg = true, priceInRs = 500.0),
-        Restaurant("Dilli Chaat Bhandar", R.drawable.salad, 4.0f, 1.5f, isVeg = true, priceInRs = 350.0),
-        Restaurant("Mughlai Darbar", R.drawable.mughlaidarbar, 4.7f, 2.5f, isVeg = false, priceInRs = 850.0),
-        Restaurant("The Punjabi Dhaba", R.drawable.spicessymphony, 4.4f, 3.2f, isVeg = false, priceInRs = 600.0),
-        Restaurant("Coastal Curry", R.drawable.maachbhaaat, 4.5f, 2.7f, isVeg = false, priceInRs = 220.0),
-        Restaurant("Rajasthani Rasoi", R.drawable.rajasthanifood, 4.1f, 3.8f, isVeg = true, priceInRs = 450.0),
-        Restaurant("The Grand Thali", R.drawable.grandthali, 4.6f, 2.1f, isVeg = true, priceInRs = 550.0),
-        Restaurant("Hyderabadi Biryani Center", R.drawable.muttonbiriyani, 4.9f, 1.9f, isVeg = false, priceInRs = 800.0),
-        Restaurant("Bengali Bhoj", R.drawable.chickenawab, 4.3f, 3.4f, isVeg = false, priceInRs = 580.0),
-        Restaurant("Malabar Spices", R.drawable.chickenthali, 4.2f, 2.9f, isVeg = false, priceInRs = 620.0),
-        Restaurant("Gujarati Swad", R.drawable.rajasthanifood, 4.0f, 3.7f, isVeg = true, priceInRs = 400.0),
-        Restaurant("Udupi Sagar", R.drawable.taco_supreme, 4.5f, 2.3f, isVeg = true, priceInRs = 520.0),
-        Restaurant("Chennai Dosa Corner", R.drawable.southindianflavors, 4.3f, 2.6f, isVeg = true, priceInRs = 490.0),
-        Restaurant("Lucknowi Kebab", R.drawable.muttonbiriyani, 4.8f, 1.7f, isVeg = false, priceInRs = 770.0),
-        Restaurant("Swad Punjab Da", R.drawable.spicessymphony, 4.5f, 3.1f, isVeg = false, priceInRs = 750.0),
-        Restaurant("Flavors of China", R.drawable.chickenmomos, 4.2f, 5.5f, isVeg = false, priceInRs = 620.0),
-        Restaurant("Dilli Chaat Bhandar", R.drawable.dalparatha, 4.7f, 2.0f, isVeg = true, priceInRs = 250.0),
-        Restaurant("Ming's Dynasty", R.drawable.chickenmomos, 4.3f, 3.8f, isVeg = false, priceInRs = 680.0),
-        Restaurant("Biryani Junction", R.drawable.chickenawab, 4.6f, 4.0f, isVeg = false, priceInRs = 900.0),
-        Restaurant("Hakka House", R.drawable.chickenhakkanoodles, 4.1f, 6.2f, isVeg = false, priceInRs = 580.0),
-        Restaurant("Rajdhani Thali", R.drawable.rajasthanifood, 4.8f, 1.5f, isVeg = true, priceInRs = 650.0),
-        Restaurant("Dragon Wok", R.drawable.nawaabres, 4.0f, 5.0f, isVeg = false, priceInRs = 720.0),
-        Restaurant("Udupi Sagar", R.drawable.southindianflavors, 4.4f, 3.3f, isVeg = true, priceInRs = 300.0),
-        Restaurant("Golden Chopsticks", R.drawable.dalparatha, 3.9f, 4.8f, isVeg = false, priceInRs = 550.0),
-        Restaurant("Tandoori Nights", R.drawable.tandoorijunction, 4.5f, 2.9f, isVeg = false, priceInRs = 850.0),
-        Restaurant("Chowman Express", R.drawable.msrcafe, 4.2f, 3.7f, isVeg = false, priceInRs = 600.0),
-        Restaurant("Bengali Rasoi", R.drawable.fishtandoori, 4.6f, 2.5f, isVeg = false, priceInRs = 500.0),
-        Restaurant("Sichuan Delights", R.drawable.pulao, 4.0f, 6.0f, isVeg = false, priceInRs = 700.0),
-        Restaurant("Gujju Rasoi", R.drawable.gulabjamun, 4.3f, 3.2f, isVeg = true, priceInRs = 480.0)
+        Restaurant("Maa Kali Restaurant", R.drawable.maakali, 3.4f, 1.2f, isVeg = true, priceInRs = 250.0, latitude = 22.5726, longitude = 88.3639),
+        Restaurant("Aasha Biriyani House", R.drawable.ashabriyani, 4.5f, 2.3f, isVeg = false, priceInRs = 350.0, latitude = 22.5726, longitude = 88.3639),
+        // Add more restaurants with latitude and longitude
     )
 
     // Listen for route changes to toggle bottom bar visibility
@@ -279,7 +247,11 @@ fun AppNavigation(
             }
             composable("details/{restaurantName}") { backStackEntry ->
                 val restaurantName = backStackEntry.arguments?.getString("restaurantName").orEmpty()
-                RestaurantDetailsScreen(navController, cartViewModel, restaurantName)
+                RestaurantDetailsScreen(
+                    cartViewModel = cartViewModel,
+                    restaurantName = restaurantName,
+                    restaurantList = restaurantList
+                ) // Pass the restaurant list here
             }
             composable("order") {
                 OrderScreen(cartViewModel = cartViewModel)
@@ -303,7 +275,6 @@ fun AppNavigation(
         }
     }
 }
-
 // Helper function to determine when to show the bottom bar
 private fun shouldShowBottomBar(route: String?): Boolean {
     return route != "splash"
@@ -633,11 +604,65 @@ fun ProfileScreen(navController: NavController) {
     }
 }
 
+// Add this function to find a restaurant by name
+fun findRestaurantByName(name: String, restaurantList: List<Restaurant>): Restaurant? {
+    return restaurantList.find { it.name == name }
+}
+
+// Add these functions to handle rating persistence
+fun saveRating(context: Context, restaurantName: String, rating: Float) {
+    val sharedPreferences = context.getSharedPreferences("restaurant_ratings", Context.MODE_PRIVATE)
+    with(sharedPreferences.edit()) {
+        putFloat(restaurantName, rating)
+        apply()
+    }
+}
+
+fun loadRating(context: Context, restaurantName: String): Float {
+    val sharedPreferences = context.getSharedPreferences("restaurant_ratings", Context.MODE_PRIVATE)
+    return sharedPreferences.getFloat(restaurantName, 0f)
+}
+
+// Add this function to show a toast message
+fun showToast(context: Context, message: String) {
+    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+}
+
 @Composable
-fun RestaurantDetailsScreen(navController: NavController, cartViewModel: CartViewModel, restaurantName: String) {
+fun RestaurantDetailsScreen(
+    cartViewModel: CartViewModel,
+    restaurantName: String,
+    restaurantList: List<Restaurant> // Pass the restaurant list as a parameter){}
+) {
+    val context = LocalContext.current
+    val restaurant = findRestaurantByName(restaurantName, restaurantList) ?: return
+
+    // Load the saved rating
+    restaurant.userRating = loadRating(context, restaurantName)
+
     Column(modifier = Modifier.fillMaxSize()) {
         // Display the restaurant name passed as a parameter
         Text(text = restaurantName, style = MaterialTheme.typography.headlineSmall)
+
+        // Display current rating
+        Text(text = "Current Rating: ${restaurant.rating} ⭐")
+
+        // Rating Bar
+        RatingBar(
+            currentRating = restaurant.userRating,
+            onRatingChanged = { newRating ->
+                restaurant.userRating = newRating
+                restaurant.numberOfRatings += 1
+                // Update the average rating
+                restaurant.rating = (restaurant.rating * (restaurant.numberOfRatings - 1) + newRating) / restaurant.numberOfRatings
+
+                // Save the new rating
+                saveRating(context, restaurantName, newRating)
+
+                // Show feedback
+                showToast(context, "Thank you for rating!")
+            }
+        )
 
         // Burger Details
         BurgerDetails()
@@ -647,6 +672,27 @@ fun RestaurantDetailsScreen(navController: NavController, cartViewModel: CartVie
 
         // Food Items with the CartViewModel
         FoodItemSection(cartViewModel)
+    }
+}
+
+@Composable
+fun RatingBar(
+    currentRating: Float,
+    onRatingChanged: (Float) -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        repeat(5) { index ->
+            Icon(
+                imageVector = if (index < currentRating.toInt()) Icons.Default.Star else Icons.Default.StarBorder,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(24.dp)
+                    .clickable { onRatingChanged(index + 1f) }
+            )
+        }
     }
 }
 
@@ -677,11 +723,7 @@ fun CouponButton() {
     }
 }
 
-data class FoodItemData(
-    val name: String,
-    val price: Double,
-    @DrawableRes val imageRes: Int
-)
+
 
 @Composable
 fun FoodItemSection(cartViewModel: CartViewModel) {
@@ -810,83 +852,58 @@ fun HomeScreen(
     locationViewModel: LocationViewModel
 ) {
     val context = LocalContext.current
+    var userLocation by remember { mutableStateOf<Location?>(null) }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
-    // State variables
     val address by locationViewModel.address.collectAsState()
     var location by remember { mutableStateOf<Location?>(null) }
     var fetchedAddress by remember { mutableStateOf("Fetching address...") }
     val locationError by locationViewModel.locationError.collectAsState()
     val cartItems by cartViewModel.cartItems.collectAsState()
 
-    // Search and filter states
     var searchText by remember { mutableStateOf("") }
     var showFilterDialog by remember { mutableStateOf(false) }
     var minRating by remember { mutableStateOf(0f) }
     var maxPrice by remember { mutableStateOf(Float.MAX_VALUE) }
     var onlyVeg by remember { mutableStateOf(false) }
+    var within7km by remember { mutableStateOf(true) }
+    var sortOption by remember { mutableStateOf("None") }
 
     val restaurantList = listOf(
-        Restaurant("Maa Kali Restaurant", R.drawable.maakali, 3.4f, 1.2f, isVeg = true, priceInRs = 250.0),
-        Restaurant("Aasha Biriyani House", R.drawable.ashabriyani, 4.5f, 2.3f, isVeg = false, priceInRs = 350.0),
-        Restaurant("Bharti Restaurant", R.drawable.bhartires, 4.0f, 1.5f, isVeg = true, priceInRs = 200.0),
-        Restaurant("Dolphin Restaurant", R.drawable.dolphinres, 2.5f, 0.9f, isVeg = false, priceInRs = 400.0),
-        Restaurant("The Nawaab Restaurant", R.drawable.nawaabres, 5.0f, 3.0f, isVeg = false, priceInRs = 500.0),
-        Restaurant("Amrita Restaurant", R.drawable.amritares, 3.7f, 1.5f, isVeg = true, priceInRs = 550.0),
-        Restaurant("Monginis Restaurant", R.drawable.monginisres, 3.9f, 0.7f, isVeg = false, priceInRs = 400.0),
-        Restaurant("Mio Amore the Cake Shop", R.drawable.mioamore, 4.3f, 1.1f, isVeg = true, priceInRs = 450.0),
-        Restaurant("Prasenjit Hotel", R.drawable.maachbhaaat, 4.4f, 2.0f, isVeg = true, priceInRs = 550.0),
-        Restaurant("MSR Cafe and Restaurant", R.drawable.msrcafe, 4.8f, 0.8f, isVeg = false, priceInRs = 600.0),
-        Restaurant("Mira Store", R.drawable.koreanbibimbaap, 4.3f, 1.4f, isVeg = true, priceInRs = 660.0),
-        Restaurant("Darjeeling Fast Food", R.drawable.darjeeling, 4.7f, 1.6f, isVeg = false, priceInRs = 650.0),
-        Restaurant("Abar Khabo Tiffin House", R.drawable.abarkhabotiffin, 1.0f, 2.2f, isVeg = false, priceInRs = 550.0),
-        Restaurant("Spice Symphony", R.drawable.spicessymphony, 4.5f, 1.8f, isVeg = false, priceInRs = 750.0),
-        Restaurant("Pure Veg Delights", R.drawable.paneer, 4.2f, 3.5f, isVeg = true, priceInRs = 400.0),
-        Restaurant("Tandoori Junction", R.drawable.tandoorijunction, 4.8f, 2.0f, isVeg = false, priceInRs = 900.0),
-        Restaurant("Biryani House", R.drawable.chickenthali, 4.6f, 2.8f, isVeg = false, priceInRs = 650.0),
-        Restaurant("South Indian Flavors", R.drawable.southindianflavors, 4.3f, 3.0f, isVeg = true, priceInRs = 500.0),
-        Restaurant("Dilli Chaat Bhandar", R.drawable.salad, 4.0f, 1.5f, isVeg = true, priceInRs = 350.0),
-        Restaurant("Mughlai Darbar", R.drawable.mughlaidarbar, 4.7f, 2.5f, isVeg = false, priceInRs = 850.0),
-        Restaurant("The Punjabi Dhaba", R.drawable.spicessymphony, 4.4f, 3.2f, isVeg = false, priceInRs = 600.0),
-        Restaurant("Coastal Curry", R.drawable.maachbhaaat, 4.5f, 2.7f, isVeg = false, priceInRs = 720.0),
-        Restaurant("Rajasthani Rasoi", R.drawable.rajasthanifood, 4.1f, 3.8f, isVeg = true, priceInRs = 450.0),
-        Restaurant("The Grand Thali", R.drawable.grandthali, 4.6f, 2.1f, isVeg = true, priceInRs = 550.0),
-        Restaurant("Hyderabadi Biryani Center", R.drawable.muttonbiriyani, 4.9f, 1.9f, isVeg = false, priceInRs = 800.0),
-        Restaurant("Bengali Bhoj", R.drawable.chickenawab, 4.3f, 3.4f, isVeg = false, priceInRs = 580.0),
-        Restaurant("Malabar Spices", R.drawable.chickenthali, 4.2f, 2.9f, isVeg = false, priceInRs = 620.0),
-        Restaurant("Gujarati Swad", R.drawable.rajasthanifood, 4.0f, 3.7f, isVeg = true, priceInRs = 400.0),
-        Restaurant("Udupi Sagar", R.drawable.taco_supreme, 4.5f, 2.3f, isVeg = true, priceInRs = 520.0),
-        Restaurant("Chennai Dosa Corner", R.drawable.southindianflavors, 4.3f, 2.6f, isVeg = true, priceInRs = 490.0),
-        Restaurant("Lucknowi Kebab", R.drawable.muttonbiriyani, 4.8f, 1.7f, isVeg = false, priceInRs = 770.0),
-        Restaurant("Swad Punjab Da", R.drawable.spicessymphony, 4.5f, 3.1f, isVeg = false, priceInRs = 750.0),
-        Restaurant("Flavors of China", R.drawable.chickenmomos, 4.2f, 5.5f, isVeg = false, priceInRs = 620.0),
-        Restaurant("Dilli Chaat Bhandar", R.drawable.dalparatha, 4.7f, 2.0f, isVeg = true, priceInRs = 250.0),
-        Restaurant("Ming's Dynasty", R.drawable.chickenmomos, 4.3f, 3.8f, isVeg = false, priceInRs = 680.0),
-        Restaurant("Biryani Junction", R.drawable.chickenawab, 4.6f, 4.0f, isVeg = false, priceInRs = 900.0),
-        Restaurant("Hakka House", R.drawable.chickenhakkanoodles, 4.1f, 6.2f, isVeg = false, priceInRs = 580.0),
-        Restaurant("Rajdhani Thali", R.drawable.rajasthanifood, 4.8f, 1.5f, isVeg = true, priceInRs = 650.0),
-        Restaurant("Dragon Wok", R.drawable.nawaabres, 4.0f, 5.0f, isVeg = false, priceInRs = 720.0),
-        Restaurant("Udupi Sagar", R.drawable.southindianflavors, 4.4f, 3.3f, isVeg = true, priceInRs = 300.0),
-        Restaurant("Golden Chopsticks", R.drawable.dalparatha, 3.9f, 4.8f, isVeg = false, priceInRs = 550.0),
-        Restaurant("Tandoori Nights", R.drawable.tandoorijunction, 4.5f, 2.9f, isVeg = false, priceInRs = 850.0),
-        Restaurant("Chowman Express", R.drawable.msrcafe, 4.2f, 3.7f, isVeg = false, priceInRs = 600.0),
-        Restaurant("Bengali Rasoi", R.drawable.fishtandoori, 4.6f, 2.5f, isVeg = false, priceInRs = 500.0),
-        Restaurant("Sichuan Delights", R.drawable.pulao, 4.0f, 6.0f, isVeg = false, priceInRs = 700.0),
-        Restaurant("Gujju Rasoi", R.drawable.gulabjamun, 4.3f, 3.2f, isVeg = true, priceInRs = 480.0)
+        Restaurant("Maa Kali Restaurant", R.drawable.maakali, 3.4f, 1.2f, isVeg = true, priceInRs = 250.0, latitude = 22.5726, longitude = 88.3639),
+        Restaurant("Aasha Biriyani House", R.drawable.ashabriyani, 4.5f, 2.3f, isVeg = false, priceInRs = 350.0, latitude = 22.5726, longitude = 88.3639),
+        // Add more restaurants with latitude and longitude
     )
 
-    var within7km by remember { mutableStateOf(true) }  // Add this state
+    // Get the user's current location
+    LaunchedEffect(Unit) {
+        getCurrentLocation(context) { loc ->
+            userLocation = loc
+        }
+    }
 
-// Modify the filtered restaurant list logic
-    val filteredRestaurantList by remember(searchText, minRating, maxPrice, onlyVeg, within7km) {
+    // Filter restaurants by location
+    val filteredRestaurantsByLocation = filterRestaurantsByLocation(userLocation, restaurantList, maxDistance = 7.0f)
+
+    // Combine location-based filtering with existing filters
+    val filteredAndSortedRestaurantList by remember(searchText, minRating, maxPrice, onlyVeg, within7km, sortOption, userLocation) {
         mutableStateOf(
-            restaurantList.filter {
-                it.name.contains(searchText, ignoreCase = true) &&
-                        it.rating >= minRating &&
-                        it.priceInRs <= maxPrice &&
-                        (!onlyVeg || it.isVeg) &&
-                        (!within7km || it.distance <= 7.0f)  // Apply within 7km filter
-            }
+            filteredRestaurantsByLocation
+                .filter {
+                    it.name.contains(searchText, ignoreCase = true) &&
+                            it.rating >= minRating &&
+                            it.priceInRs <= maxPrice &&
+                            (!onlyVeg || it.isVeg) &&
+                            (!within7km || it.distance <= 7.0f)
+                }
+                .sortedWith(compareBy<Restaurant> {
+                    when (sortOption) {
+                        "Distance High to Low" -> -it.distance
+                        "Delivery Time Low to High" -> it.distance
+                        "Best Offers" -> -it.rating
+                        else -> 0
+                    }
+                })
         )
     }
 
@@ -923,9 +940,16 @@ fun HomeScreen(
                     actions = {
                         IconButton(onClick = { navController.navigate("cart") }) {
                             BadgedBox(
-                                badge = { if (cartItems.isNotEmpty()) Badge { Text(cartItems.size.toString()) } }
+                                badge = {
+                                    if (cartItems.isNotEmpty()) Badge {
+                                        Text(cartItems.size.toString())
+                                    }
+                                }
                             ) {
-                                Icon(imageVector = Icons.Default.ShoppingCart, contentDescription = "Cart")
+                                Icon(
+                                    imageVector = Icons.Default.ShoppingCart,
+                                    contentDescription = "Cart"
+                                )
                             }
                         }
                     }
@@ -938,8 +962,19 @@ fun HomeScreen(
                         .background(Color(0xFFE8F5E9))
                         .padding(paddingValues)
                 ) {
-                    item { DeliveryHeader(address = fetchedAddress, onManualAddress = {}, onAutomaticFetch = { locationViewModel.fetchLocation() }) }
-                    item { CouponBanner(onOrderNowClick = { navController.navigate("restaurants") }) }
+                    item {
+                        DeliveryHeader(
+                            address = address,
+                            userLocation = userLocation,
+                            onManualAddress = { navController.navigate("manual_address") },
+                            onAutomaticFetch = { locationViewModel.fetchLocation() }
+                        )
+
+                    }
+
+                    item {
+                        CouponBanner(onOrderNowClick = { navController.navigate("restaurants") })
+                    }
 
                     item {
                         SearchBar(
@@ -949,10 +984,19 @@ fun HomeScreen(
                         )
                     }
 
+                    item {
+                        SortMenu(
+                            sortOption = sortOption,
+                            onSortOptionSelected = { selectedOption ->
+                                sortOption = selectedOption
+                            }
+                        )
+                    }
+
                     item { FoodCategories(navController) }
                     item { HighestRatingSection(searchText, navController, cartViewModel) }
 
-                    items(filteredRestaurantList) { restaurant ->
+                    items(filteredAndSortedRestaurantList) { restaurant ->
                         RestaurantCard(restaurant) { selectedRestaurant ->
                             navController.navigate("details/${selectedRestaurant.name}")
                         }
@@ -966,16 +1010,94 @@ fun HomeScreen(
                 minRating = minRating,
                 maxPrice = maxPrice,
                 onlyVeg = onlyVeg,
-                within7km = within7km,  // Pass the within7km state
+                within7km = within7km,
+                sortOption = sortOption,
                 onMinRatingChange = { minRating = it },
                 onMaxPriceChange = { maxPrice = it },
                 onOnlyVegChange = { onlyVeg = it },
-                onWithin7kmChange = { within7km = it },  // Handle the change
+                onWithin7kmChange = { within7km = it },
+                onSortOptionChange = { sortOption = it },
                 onDismiss = { showFilterDialog = false }
             )
         }
     }
 }
+// Function to get the current location
+fun getCurrentLocation(context: Context, onLocationReceived: (Location?) -> Unit) {
+    val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            onLocationReceived(location)
+        }.addOnFailureListener {
+            onLocationReceived(null)
+        }
+    } else {
+        // Handle the case where permission is not granted
+        onLocationReceived(null)
+    }
+}
+// Function to calculate distance between two locations
+fun calculateDistance(location1: Location, location2: Location): Float {
+    return location1.distanceTo(location2) / 1000 // Convert meters to kilometers
+}
+
+// Function to filter restaurants by location
+fun filterRestaurantsByLocation(userLocation: Location?, restaurantList: List<Restaurant>, maxDistance: Float): List<Restaurant> {
+    if (userLocation == null) return emptyList()
+    return restaurantList.filter { restaurant ->
+        val restaurantLocation = Location("").apply {
+            latitude = restaurant.latitude
+            longitude = restaurant.longitude
+        }
+        calculateDistance(userLocation, restaurantLocation) <= maxDistance
+    }
+}
+
+@Composable
+fun SortMenu(sortOption: String, onSortOptionSelected: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        Box(
+            modifier = Modifier
+                .padding(8.dp)
+                .shadow(4.dp, shape = RoundedCornerShape(8.dp))
+                .background(Color(0xFFD0F0C0), shape = RoundedCornerShape(8.dp)) // light green
+                .clickable { expanded = true }
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            Text(text = "Sort by: $sortOption", color = Color.Black)
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Distance High to Low") },
+                onClick = {
+                    onSortOptionSelected("Distance High to Low")
+                    expanded = false
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Delivery Time Low to High") },
+                onClick = {
+                    onSortOptionSelected("Delivery Time Low to High")
+                    expanded = false
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Best Offers") },
+                onClick = {
+                    onSortOptionSelected("Best Offers")
+                    expanded = false
+                }
+            )
+        }
+    }
+}
+
 
 @Composable
 fun SearchBar(searchText: String, onSearchTextChanged: (String) -> Unit, onFilterClick: () -> Unit) {
@@ -1013,13 +1135,17 @@ fun FilterDialog(
     minRating: Float,
     maxPrice: Float,
     onlyVeg: Boolean,
-    within7km: Boolean,  // Add this parameter
+    within7km: Boolean,
+    sortOption: String,
     onMinRatingChange: (Float) -> Unit,
     onMaxPriceChange: (Float) -> Unit,
     onOnlyVegChange: (Boolean) -> Unit,
-    onWithin7kmChange: (Boolean) -> Unit,  // Add this callback
+    onWithin7kmChange: (Boolean) -> Unit,
+    onSortOptionChange: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var sortMenuExpanded by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Filters") },
@@ -1056,6 +1182,42 @@ fun FilterDialog(
                     )
                     Text("Within 7km")
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text("Sort by:")
+                Box {
+                    Button(onClick = { sortMenuExpanded = true }) {
+                        Text(sortOption)
+                    }
+
+                    DropdownMenu(
+                        expanded = sortMenuExpanded,
+                        onDismissRequest = { sortMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Distance High to Low") },
+                            onClick = {
+                                onSortOptionChange("Distance High to Low")
+                                sortMenuExpanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delivery Time Low to High") },
+                            onClick = {
+                                onSortOptionChange("Delivery Time Low to High")
+                                sortMenuExpanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Best Offers") },
+                            onClick = {
+                                onSortOptionChange("Best Offers")
+                                sortMenuExpanded = false
+                            }
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
@@ -1063,6 +1225,7 @@ fun FilterDialog(
         }
     )
 }
+
 
 @Composable
 fun RestaurantCard(
@@ -1348,6 +1511,7 @@ fun CouponBanner(onOrderNowClick: () -> Unit) {
 @Composable
 fun DeliveryHeader(
     address: String,
+    userLocation: Location?, // Ensure this parameter is included
     onManualAddress: () -> Unit,
     onAutomaticFetch: () -> Unit
 ) {
@@ -1376,6 +1540,14 @@ fun DeliveryHeader(
             ) {
                 Text(text = address, style = MaterialTheme.typography.titleMedium)
             }
+
+            // Display user location if available
+            userLocation?.let {
+                Text(
+                    text = "Your Location: ${it.latitude}, ${it.longitude}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
     }
 
@@ -1400,21 +1572,33 @@ fun AddressOptionDialog(
     onManualAddress: () -> Unit,
     onAutomaticFetch: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "Choose Address Option") },
-        text = { Text(text = "How would you like to enter your address?") },
-        confirmButton = {
-            Button(onClick = onManualAddress) {
-                Text(text = "Manual Address")
+    var showManualInput by remember { mutableStateOf(false) }
+
+    if (showManualInput) {
+        ManualAddressInput(onSubmit = { address ->
+            // Handle the submitted address
+            onManualAddress()
+            showManualInput = false
+        })
+    } else {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(text = "Choose Address Option") },
+            text = { Text(text = "How would you like to enter your address?") },
+            confirmButton = {
+                Button(onClick = {
+                    showManualInput = true
+                }) {
+                    Text(text = "Manual Address")
+                }
+            },
+            dismissButton = {
+                Button(onClick = onAutomaticFetch) {
+                    Text(text = "Fetch Automatically")
+                }
             }
-        },
-        dismissButton = {
-            Button(onClick = onAutomaticFetch) {
-                Text(text = "Fetch Automatically")
-            }
-        }
-    )
+        )
+    }
 }
 
 @Composable
