@@ -6,6 +6,7 @@ import android.Manifest
 import android.app.Application
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Paint
 import android.location.Location
 import android.os.Bundle
 import android.widget.Toast
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import android.location.Geocoder
+import android.media.MediaPlayer
 import android.util.Log
 import java.util.Locale
 import androidx.compose.foundation.lazy.LazyColumn
@@ -45,6 +47,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,6 +55,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
@@ -98,13 +102,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.motion.widget.Debug.getLocation
 import androidx.core.app.ActivityCompat
@@ -125,6 +134,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
 
 class MainActivity : ComponentActivity() {
 
@@ -728,9 +740,9 @@ fun RestaurantDetailsScreen(
         BurgerDetails()
 
         // Coupon Button
-        CouponButton { discount ->
+        SpinningWheel { discount ->
             cartViewModel.applyDiscount(discount)
-            Toast.makeText(context, "You got a $discount% discount!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "🎉 You got a $discount% discount!", Toast.LENGTH_SHORT).show()
         }
 
         // Food Items with the CartViewModel
@@ -798,6 +810,92 @@ fun CouponButton(onDiscountGenerated: (Int) -> Unit) {
         Text(if (isSpinning) "Spinning..." else "Click to get Discount up to 90%!")
     }
 }
+@Composable
+fun SpinningWheel(onDiscountSelected: (Int) -> Unit) {
+    val discounts = listOf(10, 20, 30, 40, 50, 60, 70, 80, 90)
+    val angle = remember { Animatable(0f) }
+    var isSpinning by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val showConfetti = remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val mediaPlayer = remember { MediaPlayer.create(context, R.raw.spin_win) }
+
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(250.dp)) {
+        Canvas(modifier = Modifier.size(250.dp)) {
+            val sweepAngle = 360f / discounts.size
+            discounts.forEachIndexed { index, discount ->
+                val startAngle = index * sweepAngle + angle.value
+                drawArc(
+                    color = Color.hsv((index * 40f) % 360, 1f, 1f),
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngle,
+                    useCenter = true
+                )
+                drawContext.canvas.nativeCanvas.apply {
+                    val radians = Math.toRadians((startAngle + sweepAngle / 2).toDouble())
+                    val x = size.width / 2 + (size.minDimension / 3) * cos(radians).toFloat()
+                    val y = size.height / 2 + (size.minDimension / 3) * sin(radians).toFloat()
+                    drawText("$discount%", x, y, Paint().apply {
+                        textSize = 30f
+                        color = android.graphics.Color.BLACK
+                        textAlign = Paint.Align.CENTER
+                    })
+                }
+            }
+        }
+
+        Button(
+            onClick = {
+                if (!isSpinning) {
+                    isSpinning = true
+                    val targetIndex = Random.nextInt(discounts.size)
+                    val targetAngle = 360f * 10 + (360f / discounts.size) * targetIndex
+                    scope.launch {
+                        angle.animateTo(
+                            targetValue = targetAngle,
+                            animationSpec = tween(durationMillis = 3000, easing = FastOutSlowInEasing)
+                        )
+                        val selected = discounts[targetIndex]
+                        mediaPlayer.start()
+                        onDiscountSelected(selected)
+                        showConfetti.value = true
+                        delay(2000)
+                        showConfetti.value = false
+                        isSpinning = false
+                    }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F))
+        ) {
+            Text("Spin Wheel")
+        }
+
+        ConfettiOverlay(show = showConfetti.value)
+    }
+}
+
+@Composable
+fun ConfettiOverlay(show: Boolean) {
+    if (show) {
+        val particles = remember { List(100) { Random.nextInt(0, 300) to Random.nextInt(0, 300) } }
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            particles.forEach { (x, y) ->
+                drawCircle(
+                    color = Color(
+                        Random.nextFloat(),
+                        Random.nextFloat(),
+                        Random.nextFloat(),
+                        1f
+                    ),
+                    radius = 5f,
+                    center = Offset(x.toFloat(), y.toFloat())
+                )
+            }
+        }
+    }
+}
+
 
 @Composable
 fun FoodItemSection(cartViewModel: CartViewModel) {
