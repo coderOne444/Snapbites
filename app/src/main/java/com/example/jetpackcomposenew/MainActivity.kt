@@ -2241,7 +2241,7 @@ fun CouponBanner(onOrderNowClick: () -> Unit) {
                 .padding(16.dp)
         ) {
             Image(
-                painter = painterResource(id = R.drawable.freedeliverycoupon),
+                painter = painterResource(id = R.drawable.foodbanner),
                 contentDescription = "Coupon Background",
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2254,9 +2254,9 @@ fun CouponBanner(onOrderNowClick: () -> Unit) {
                     .padding(16.dp)
             ) {
                 Text(
-                    text = "2x free delivery coupon!",
-                    color = Color.Black,
-                    style = MaterialTheme.typography.bodySmall
+                    text = "Epic Deals Upto 40% Off",
+                    color = Color.Red,
+                    style = MaterialTheme.typography.bodyLarge
                 )
                 Button(
                     onClick = onOrderNowClick, // Use the callback here
