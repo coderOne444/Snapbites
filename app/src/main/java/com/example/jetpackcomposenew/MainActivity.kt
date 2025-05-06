@@ -6,8 +6,16 @@ import android.Manifest
 import android.app.Application
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Paint
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import android.location.Location
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import com.google.accompanist.pager.*
+import kotlinx.coroutines.delay
+import androidx.compose.ui.res.painterResource
 import android.os.Bundle
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
@@ -15,7 +23,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,12 +38,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import android.net.Uri
 import androidx.activity.viewModels
@@ -46,6 +51,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
@@ -55,17 +61,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import viewmodel.LocationViewModel
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.BottomNavigation
+import androidx.compose.material.BottomNavigationItem
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
@@ -84,41 +96,35 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SmallTopAppBar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
-import androidx.constraintlayout.motion.widget.Debug.getLocation
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
-import androidx.lifecycle.AndroidViewModel
 import androidx.navigation.NavController
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -127,7 +133,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberImagePainter
 import com.google.firebase.auth.FirebaseAuth
-import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -202,34 +207,34 @@ class CartViewModel : ViewModel() {
     private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
     val cartItems: StateFlow<List<CartItem>> = _cartItems
 
-    private val _orderDetails = MutableStateFlow<List<CartItem>?>(null)
-    val orderDetails: StateFlow<List<CartItem>?> = _orderDetails
+    // New: order history of past carts
+    private val _orderHistory = MutableStateFlow<List<List<CartItem>>>(emptyList())
+    val orderHistory: StateFlow<List<List<CartItem>>> = _orderHistory
 
     private val _discountPercentage = MutableStateFlow(0)
     val discountPercentage: StateFlow<Int> = _discountPercentage
 
-    fun applyDiscount(discount: Int) {
-        _discountPercentage.value = discount
-        Log.d("CartViewModel", "Applied discount: $discount%")
+    fun addItemToCart(item: CartItem) {
+        _cartItems.value = _cartItems.value + item
     }
 
-    fun addItemToCart(item: CartItem) {
-        _cartItems.value += item
-        Log.d("CartViewModel", "Added item: ${item.name}. Current cart: ${_cartItems.value}")
+    fun applyDiscount(discount: Int) {
+        _discountPercentage.value = discount
     }
 
     fun clearCart() {
         _cartItems.value = emptyList()
         _discountPercentage.value = 0
-        Log.d("CartViewModel", "Cart cleared.")
     }
 
-    // Function to place an order
-    //fun placeOrder() {
-      //  _orderDetails.value = _cartItems.value
-    //    clearCart()  // Clear the cart after placing the order
-   //     Log.d("CartViewModel", "Order placed. Order details: ${_orderDetails.value}")
-   // }
+    // New: move current cart into history and then clear it
+    fun placeOrder() {
+        val current = _cartItems.value
+        if (current.isNotEmpty()) {
+            _orderHistory.value = _orderHistory.value + listOf(current)
+            clearCart()
+        }
+    }
 }
 
 
@@ -300,11 +305,60 @@ fun AppNavigation(
     }
 
     Scaffold(
+        floatingActionButton = {
+            if (showBottomBar) {
+                AnimatedAddButton { navController.navigate("cart") }
+            }
+        },
         bottomBar = {
             if (showBottomBar) {
-                BottomNavBar(navController)
+                // 1) Read the nav backstack to know which screen is selected
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
+
+                // 2) Slim, transparent BottomNavigation
+                BottomNavigation(
+                    backgroundColor = Color.Transparent,
+                    elevation = 0.dp,
+                    modifier = Modifier.height(56.dp)
+                ) {
+                    BottomNavigationItem(
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                        selected = currentRoute == "home",
+                        onClick = {
+                            navController.navigate("home") {
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
+                    BottomNavigationItem(
+                        icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Order") },
+                        selected = currentRoute == "order",
+                        onClick = {
+                            navController.navigate("order") {
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
+                    BottomNavigationItem(
+                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                        selected = currentRoute == "profile",
+                        onClick = {
+                            navController.navigate("profile") {
+                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
+                }
             }
         }
+
     ) { paddingValues ->
         NavHost(
             navController = navController,
@@ -315,15 +369,29 @@ fun AppNavigation(
                 SplashScreen(navController)
             }
             composable("home") {
-                HomeScreen(navController = navController, cartViewModel = cartViewModel, locationViewModel = locationViewModel)
+                HomeScreen(
+                    navController = navController,
+                    cartViewModel = cartViewModel,
+                    locationViewModel = locationViewModel
+                )
             }
+
+            // ← all‑restaurants screen
+            composable("restaurants") {
+                RestaurantsScreen(
+                    navController = navController,
+                    restaurantList = restaurantList
+                )
+            }
+
             composable("details/{restaurantName}") { backStackEntry ->
-                val restaurantName = backStackEntry.arguments?.getString("restaurantName").orEmpty()
+                val restaurantName = backStackEntry.arguments
+                    ?.getString("restaurantName").orEmpty()
                 RestaurantDetailsScreen(
                     cartViewModel = cartViewModel,
                     restaurantName = restaurantName,
                     restaurantList = restaurantList
-                ) // Pass the restaurant list here
+                )
             }
             composable("order") {
                 OrderScreen(cartViewModel = cartViewModel)
@@ -332,7 +400,8 @@ fun AppNavigation(
                 ProfileScreen(navController = navController)
             }
             composable("category/{category}") { backStackEntry ->
-                val category = backStackEntry.arguments?.getString("category").orEmpty()
+                val category = backStackEntry.arguments
+                    ?.getString("category").orEmpty()
                 CategoryScreen(category, navController, restaurantList)
             }
             composable("signup") {
@@ -347,9 +416,120 @@ fun AppNavigation(
         }
     }
 }
+
+    @Composable
+fun RestaurantsScreen(
+    navController: NavController,
+    restaurantList: List<Restaurant>
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text(
+            text = "All Restaurants",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(16.dp)
+        )
+
+        LazyColumn {
+            items(restaurantList) { restaurant ->
+                RestaurantCard(restaurant) { selected ->
+                    navController.navigate("details/${selected.name}")
+                }
+            }
+        }
+    }
+}
+
 // Helper function to determine when to show the bottom bar
 private fun shouldShowBottomBar(route: String?): Boolean {
     return route != "splash"
+}
+
+@OptIn(ExperimentalPagerApi::class)
+@Composable
+fun RestaurantImageSlider(
+    restaurantImages: List<Int>,
+    modifier: Modifier = Modifier,
+    autoScrollDuration: Long = 3000L // 3 seconds
+) {
+    val pagerState = rememberPagerState()
+
+    LaunchedEffect(key1 = pagerState.currentPage) {
+        delay(autoScrollDuration)
+        val nextPage = (pagerState.currentPage + 1) % restaurantImages.size
+        pagerState.animateScrollToPage(nextPage)
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(220.dp)
+    ) {
+        HorizontalPager(
+            count = restaurantImages.size,
+            state = pagerState,
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+        ) { page ->
+            Image(
+                painter = painterResource(id = restaurantImages[page]),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        HorizontalPagerIndicator(
+            pagerState = pagerState,
+            activeColor = MaterialTheme.colorScheme.primary,
+            inactiveColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(8.dp)
+        )
+    }
+}
+@Composable
+fun FloatingNavBar(navController: NavController) {
+    val items = listOf("home", "order", "profile")
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(50))
+            .background(Color.White)
+            .shadow(8.dp, RoundedCornerShape(50))
+            .padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        items.forEach { screen ->
+            IconButton(onClick = {
+                navController.navigate(screen) {
+                    popUpTo(navController.graph.startDestinationId)
+                    launchSingleTop = true
+                }
+            }) {
+                Icon(
+                    imageVector = when (screen) {
+                        "home" -> Icons.Default.Home
+                        "order" -> Icons.Default.ShoppingCart
+                        "profile" -> Icons.Default.Person
+                        else -> Icons.Default.Info
+                    },
+                    contentDescription = screen,
+                    tint = if (currentRoute == screen) Color(0xFF7DE482) else Color.Gray
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -423,145 +603,38 @@ fun RestaurantItem(
 }
 
 @Composable
-fun BottomNavBar(navController: NavController) {
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .background(
-                color = Color.White,
-                shape = RoundedCornerShape(16.dp) // Rounded edges for the entire navigation bar
-            )
-            .shadow(8.dp, RoundedCornerShape(16.dp)) // Optional shadow for elevation effect
-    ) {
-        NavigationBar(
-            modifier = Modifier
-                .height(90.dp) // Adjust the height for compactness
-        ) {
-            NavigationBarItem(
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Home,
-                        contentDescription = "Home",
-                        modifier = Modifier
-                            .size(24.dp) // Smaller icon size
-                            .padding(top = 4.dp) // Shift icon downwards
-                    )
-                },
-                label = {
-                    Text(
-                        "Home",
-                        fontSize = 15.sp,
-                        modifier = Modifier.padding(top = 2.dp) // Shift text downwards
-                    )
-                },
-                selected = currentRoute == "home",
-                onClick = {
-                    navController.navigate("home") {
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color.White,
-                    selectedTextColor = Color.Black,
-                    unselectedIconColor = Color.Black,
-                    unselectedTextColor = Color.Black,
-                    indicatorColor = Color(0xFF4CAF50) // Green background when selected
-                )
-            )
-            NavigationBarItem(
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.ShoppingCart,
-                        contentDescription = "Order",
-                        modifier = Modifier
-                            .size(24.dp)
-                            .padding(top = 4.dp) // Shift icon downwards
-                    )
-                },
-                label = {
-                    Text(
-                        "Order",
-                        fontSize = 15.sp,
-                        modifier = Modifier.padding(top = 2.dp) // Shift text downwards
-                    )
-                },
-                selected = currentRoute == "order",
-                onClick = {
-                    navController.navigate("order") {
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color.White,
-                    selectedTextColor = Color.Black,
-                    unselectedIconColor = Color.Black,
-                    unselectedTextColor = Color.Black,
-                    indicatorColor = Color(0xFF4CAF50)
-                )
-            )
-            NavigationBarItem(
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        modifier = Modifier
-                            .size(24.dp)
-                            .padding(top = 4.dp) // Shift icon downwards
-                    )
-                },
-                label = {
-                    Text(
-                        "Profile",
-                        fontSize = 15.sp,
-                        modifier = Modifier.padding(top = 2.dp) // Shift text downwards
-                    )
-                },
-                selected = currentRoute == "profile",
-                onClick = {
-                    navController.navigate("profile") {
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color.White,
-                    selectedTextColor = Color.Black,
-                    unselectedIconColor = Color.Black,
-                    unselectedTextColor = Color.Black,
-                    indicatorColor = Color(0xFF4CAF50)
-                )
-            )
-        }
-    }
-}
-
-@Composable
 fun OrderScreen(cartViewModel: CartViewModel) {
-    val orderDetails by cartViewModel.orderDetails.collectAsState()
+    val history by cartViewModel.orderHistory.collectAsState()
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
+            .padding(16.dp)
     ) {
-        if (orderDetails.isNullOrEmpty()) {
-            Text(text = "No Orders", style = MaterialTheme.typography.headlineSmall)
+        Text("Order History", style = MaterialTheme.typography.headlineSmall)
+
+        if (history.isEmpty()) {
+            Spacer(Modifier.height(24.dp))
+            Text("No orders yet", style = MaterialTheme.typography.bodyMedium)
         } else {
-            Column {
-                Text(text = "Order Details", style = MaterialTheme.typography.headlineSmall)
-                Spacer(modifier = Modifier.height(8.dp))
-                orderDetails!!.forEach { orderItem ->
-                    Text(text = "${orderItem.name} - $${orderItem.priceInRs}", modifier = Modifier.padding(4.dp))
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                itemsIndexed(history) { index, order ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Order #${index + 1}", fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(8.dp))
+                            order.forEach { item ->
+                                Row {
+                                    Text(item.name)
+                                    Spacer(Modifier.weight(1f))
+                                    Text("₹${item.priceInRs}")
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -810,67 +883,84 @@ fun CouponButton(onDiscountGenerated: (Int) -> Unit) {
         Text(if (isSpinning) "Spinning..." else "Click to get Discount up to 90%!")
     }
 }
+
 @Composable
 fun SpinningWheel(onDiscountSelected: (Int) -> Unit) {
     val discounts = listOf(10, 20, 30, 40, 50, 60, 70, 80, 90)
-    val angle = remember { Animatable(0f) }
+    val sweepAngle = 360f / discounts.size
+    val spinAngle = remember { Animatable(0f) }
     var isSpinning by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val showConfetti = remember { mutableStateOf(false) }
+    var showWheelArea by remember { mutableStateOf(true) }
+    var showConfetti by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val mediaPlayer = remember { MediaPlayer.create(context, R.raw.spin_win) }
+    val scope = rememberCoroutineScope()
 
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(250.dp)) {
-        Canvas(modifier = Modifier.size(250.dp)) {
-            val sweepAngle = 360f / discounts.size
-            discounts.forEachIndexed { index, discount ->
-                val startAngle = index * sweepAngle + angle.value
-                drawArc(
-                    color = Color.hsv((index * 40f) % 360, 1f, 1f),
-                    startAngle = startAngle,
-                    sweepAngle = sweepAngle,
-                    useCenter = true
-                )
-                drawContext.canvas.nativeCanvas.apply {
-                    val radians = Math.toRadians((startAngle + sweepAngle / 2).toDouble())
-                    val x = size.width / 2 + (size.minDimension / 3) * cos(radians).toFloat()
-                    val y = size.height / 2 + (size.minDimension / 3) * sin(radians).toFloat()
-                    drawText("$discount%", x, y, Paint().apply {
-                        textSize = 30f
-                        color = android.graphics.Color.BLACK
-                        textAlign = Paint.Align.CENTER
-                    })
+    // This visibility controls the entire wheel + button area
+    AnimatedVisibility(
+        visible = showWheelArea,
+        exit = fadeOut(animationSpec = tween(durationMillis = 800))
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(250.dp)) {
+            // 1) Wheel Canvas
+            Canvas(modifier = Modifier.matchParentSize()) {
+                discounts.forEachIndexed { index, discount ->
+                    val start = index * sweepAngle + spinAngle.value
+                    drawArc(
+                        color = Color.hsv((index * 40f) % 360, 1f, 1f),
+                        startAngle = start,
+                        sweepAngle = sweepAngle,
+                        useCenter = true
+                    )
+                    // draw discount label
+                    val radians = Math.toRadians((start + sweepAngle/2).toDouble())
+                    val x = size.width/2 + (size.minDimension/3) * cos(radians).toFloat()
+                    val y = size.height/2 + (size.minDimension/3) * sin(radians).toFloat()
+                    drawContext.canvas.nativeCanvas.drawText(
+                        "${discount}%",
+                        x, y,
+                        android.graphics.Paint().apply {
+                            textSize = 30f; color = android.graphics.Color.BLACK
+                            textAlign = android.graphics.Paint.Align.CENTER
+                        }
+                    )
                 }
             }
-        }
 
-        Button(
-            onClick = {
-                if (!isSpinning) {
-                    isSpinning = true
-                    val targetIndex = Random.nextInt(discounts.size)
-                    val targetAngle = 360f * 10 + (360f / discounts.size) * targetIndex
-                    scope.launch {
-                        angle.animateTo(
-                            targetValue = targetAngle,
-                            animationSpec = tween(durationMillis = 3000, easing = FastOutSlowInEasing)
-                        )
-                        val selected = discounts[targetIndex]
-                        mediaPlayer.start()
-                        onDiscountSelected(selected)
-                        showConfetti.value = true
-                        delay(2000)
-                        showConfetti.value = false
-                        isSpinning = false
+            // 2) Spin Button (centered)
+            Button(
+                onClick = {
+                    if (!isSpinning) {
+                        isSpinning = true
+                        val targetIndex = Random.nextInt(discounts.size)
+                        val targetAngle = 360f*10 + sweepAngle*targetIndex
+                        scope.launch {
+                            spinAngle.animateTo(
+                                targetValue = targetAngle,
+                                animationSpec = tween(durationMillis = 3000, easing = FastOutSlowInEasing)
+                            )
+                            // play sound & show confetti
+                            mediaPlayer.start()
+                            showConfetti = true
+                            onDiscountSelected(discounts[targetIndex])
+                            // wait for confetti
+                            delay(2000)
+                            showConfetti = false
+                            // now hide the whole wheel area
+                            showWheelArea = false
+                        }
                     }
-                }
-            },
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F))
-        ) {
-            Text("Spin Wheel")
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F))
+            ) {
+                Text(if (isSpinning) "Spinning..." else "Spin Wheel")
+            }
         }
+    }
 
-        ConfettiOverlay(show = showConfetti.value)
+    // 3) Confetti overlay on the entire screen
+    if (showConfetti) {
+        ConfettiOverlay(show = true)
     }
 }
 
@@ -1018,10 +1108,7 @@ fun SplashScreen(navController: NavController) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
-    navController: NavController,
-    cartViewModel: CartViewModel,
-    locationViewModel: LocationViewModel
+fun HomeScreen(navController: NavController, cartViewModel: CartViewModel, locationViewModel: LocationViewModel = viewModel()
 ) {
     val context = LocalContext.current
     var userLocation by remember { mutableStateOf<Location?>(null) }
@@ -1032,76 +1119,492 @@ fun HomeScreen(
     var fetchedAddress by remember { mutableStateOf("Fetching address...") }
     val locationError by locationViewModel.locationError.collectAsState()
     val cartItems by cartViewModel.cartItems.collectAsState()
+    var showCoupon by remember { mutableStateOf(true) }
 
     var searchText by remember { mutableStateOf("") }
     var showFilterDialog by remember { mutableStateOf(false) }
-    var minRating by remember { mutableStateOf(0f) }
-    var maxPrice by remember { mutableStateOf(Float.MAX_VALUE) }
+    var showManualDialog by remember { mutableStateOf(false) }
+    var minRating by remember { mutableFloatStateOf(0f) }
+    var maxPrice by remember { androidx.compose.runtime.mutableFloatStateOf(Float.MAX_VALUE) }
     var onlyVeg by remember { mutableStateOf(false) }
     var within7km by remember { mutableStateOf(true) }
     var sortOption by remember { mutableStateOf("None") }
 
+    // Sample restaurantList (should be moved to ViewModel/Repository)
     val restaurantList = listOf(
-            Restaurant("Maa Kali Restaurant", R.drawable.maakali, 3.4f, 1.2f, isVeg = true, priceInRs = 250.0, latitude = 37.4220936, longitude = -122.083922),
-            Restaurant("Aasha Biriyani House", R.drawable.ashabriyani, 4.5f, 2.3f, isVeg = false, priceInRs = 350.0, latitude = 37.4232000, longitude = -122.081000),
-            Restaurant("Bharti Restaurant", R.drawable.bhartires, 4.0f, 1.5f, isVeg = true, priceInRs = 200.0, latitude = 37.4215000, longitude = -122.080000),
-            Restaurant("Dolphin Restaurant", R.drawable.dolphinres, 2.5f, 0.9f, isVeg = false, priceInRs = 400.0, latitude = 37.4200000, longitude = -122.085000),
-            Restaurant("The Nawaab Restaurant", R.drawable.nawaabres, 5.0f, 3.0f, isVeg = false, priceInRs = 500.0, latitude = 37.4190000, longitude = -122.087000),
-            Restaurant("Amrita Restaurant", R.drawable.amritares, 3.7f, 1.5f, isVeg = true, priceInRs = 550.0, latitude = 37.4250000, longitude = -122.082000),
-            Restaurant("Monginis Restaurant", R.drawable.monginisres, 3.9f, 0.7f, isVeg = false, priceInRs = 400.0, latitude = 37.4265000, longitude = -122.086000),
-            Restaurant("Mio Amore the Cake Shop", R.drawable.mioamore, 4.3f, 1.1f, isVeg = true, priceInRs = 450.0, latitude = 37.4235000, longitude = -122.083000),
-            Restaurant("Prasenjit Hotel", R.drawable.maachbhaaat, 4.4f, 2.0f, isVeg = true, priceInRs = 550.0, latitude = 37.4210000, longitude = -122.088000),
-            Restaurant("MSR Cafe and Restaurant", R.drawable.msrcafe, 4.8f, 0.8f, isVeg = false, priceInRs = 600.0, latitude = 37.4222000, longitude = -122.089500),
-            Restaurant("Mira Store", R.drawable.koreanbibimbaap, 4.3f, 1.4f, isVeg = true, priceInRs = 660.0, latitude = 37.4270000, longitude = -122.084200),
-            Restaurant("Darjeeling Fast Food", R.drawable.darjeeling, 4.7f, 1.6f, isVeg = false, priceInRs = 650.0, latitude = 37.4288000, longitude = -122.083500),
-            Restaurant("Abar Khabo Tiffin House", R.drawable.abarkhabotiffin, 1.0f, 2.2f, isVeg = false, priceInRs = 550.0, latitude = 37.423, longitude = -122.083),
-            Restaurant("Spice Symphony", R.drawable.spicessymphony, 4.5f, 1.8f, isVeg = false, priceInRs = 750.0, latitude = 37.424, longitude = -122.081),
-            Restaurant("Pure Veg Delights", R.drawable.paneer, 4.2f, 3.5f, isVeg = true, priceInRs = 400.0, latitude = 37.421, longitude = -122.079),
-            Restaurant("Tandoori Junction", R.drawable.tandoorijunction, 4.8f, 2.0f, isVeg = false, priceInRs = 900.0, latitude = 37.419, longitude = -122.084),
-            Restaurant("Biryani House", R.drawable.chickenthali, 4.6f, 2.8f, isVeg = false, priceInRs = 650.0, latitude = 37.420, longitude = -122.082),
-            Restaurant("South Indian Flavors", R.drawable.southindianflavors, 4.3f, 3.0f, isVeg = true, priceInRs = 500.0, latitude = 37.417, longitude = -122.080),
-            Restaurant("Dilli Chaat Bhandar", R.drawable.salad, 4.0f, 1.5f, isVeg = true, priceInRs = 350.0, latitude = 37.422, longitude = -122.086),
-            Restaurant("Mughlai Darbar", R.drawable.mughlaidarbar, 4.7f, 2.5f, isVeg = false, priceInRs = 850.0, latitude = 37.418, longitude = -122.078),
-            Restaurant("The Punjabi Dhaba", R.drawable.spicessymphony, 4.4f, 3.2f, isVeg = false, priceInRs = 600.0, latitude = 37.419, longitude = -122.085),
-            Restaurant("Coastal Curry", R.drawable.maachbhaaat, 4.5f, 2.7f, isVeg = false, priceInRs = 720.0, latitude = 37.420, longitude = -122.081),
-            Restaurant("Rajasthani Rasoi", R.drawable.rajasthanifood, 4.1f, 3.8f, isVeg = true, priceInRs = 450.0, latitude = 37.421, longitude = -122.084),
-            Restaurant("The Grand Thali", R.drawable.grandthali, 4.6f, 2.1f, isVeg = true, priceInRs = 550.0, latitude = 37.423, longitude = -122.080),
-            Restaurant("Hyderabadi Biryani Center", R.drawable.muttonbiriyani, 4.9f, 1.9f, isVeg = false, priceInRs = 800.0, latitude = 37.418, longitude = -122.083),
-            Restaurant("Bengali Bhoj", R.drawable.chickenawab, 4.3f, 3.4f, isVeg = false, priceInRs = 580.0, latitude = 37.422, longitude = -122.082),
-            Restaurant("Malabar Spices", R.drawable.chickenthali, 4.2f, 2.9f, isVeg = false, priceInRs = 620.0, latitude = 37.419, longitude = -122.080),
-            Restaurant("Gujarati Swad", R.drawable.rajasthanifood, 4.0f, 3.7f, isVeg = true, priceInRs = 400.0, latitude = 37.420, longitude = -122.085),
-            Restaurant("Udupi Sagar", R.drawable.taco_supreme, 4.5f, 2.3f, isVeg = true, priceInRs = 520.0, latitude = 37.421, longitude = -122.079),
-            Restaurant("Chennai Dosa Corner", R.drawable.southindianflavors, 4.3f, 2.6f, isVeg = true, priceInRs = 490.0, latitude = 37.417, longitude = -122.081),
-            Restaurant("Lucknowi Kebab", R.drawable.muttonbiriyani, 4.8f, 1.7f, isVeg = false, priceInRs = 770.0, latitude = 37.424, longitude = -122.080),
-            Restaurant("Swad Punjab Da", R.drawable.spicessymphony, 4.5f, 3.1f, isVeg = false, priceInRs = 750.0, latitude = 37.418, longitude = -122.082),
-            Restaurant("Flavors of China", R.drawable.chickenmomos, 4.2f, 5.5f, isVeg = false, priceInRs = 620.0, latitude = 37.419, longitude = -122.084),
-            Restaurant("Dilli Chaat Bhandar", R.drawable.dalparatha, 4.7f, 2.0f, isVeg = true, priceInRs = 250.0, latitude = 37.421, longitude = -122.086),
-            Restaurant("Ming's Dynasty", R.drawable.chickenmomos, 4.3f, 3.8f, isVeg = false, priceInRs = 680.0, latitude = 37.423, longitude = -122.083),
-            Restaurant("Biryani Junction", R.drawable.chickenawab, 4.6f, 4.0f, isVeg = false, priceInRs = 900.0, latitude = 37.420, longitude = -122.078),
-            Restaurant("Hakka House", R.drawable.chickenhakkanoodles, 4.1f, 6.2f, isVeg = false, priceInRs = 580.0, latitude = 37.424, longitude = -122.085),
-            Restaurant("Rajdhani Thali", R.drawable.rajasthanifood, 4.8f, 1.5f, isVeg = true, priceInRs = 650.0, latitude = 37.422, longitude = -122.081),
-            Restaurant("Dragon Wok", R.drawable.nawaabres, 4.0f, 5.0f, isVeg = false, priceInRs = 720.0, latitude = 37.418, longitude = -122.080),
-            Restaurant("Udupi Sagar", R.drawable.southindianflavors, 4.4f, 3.3f, isVeg = true, priceInRs = 300.0, latitude = 37.417, longitude = -122.079),
-            Restaurant("Golden Chopsticks", R.drawable.dalparatha, 3.9f, 4.8f, isVeg = false, priceInRs = 550.0, latitude = 37.419, longitude = -122.083),
-            Restaurant("Tandoori Nights", R.drawable.tandoorijunction, 4.5f, 2.9f, isVeg = false, priceInRs = 850.0, latitude = 37.420, longitude = -122.084),
-            Restaurant("Chowman Express", R.drawable.msrcafe, 4.2f, 3.7f, isVeg = false, priceInRs = 600.0, latitude = 37.423, longitude = -122.080),
-            Restaurant("Bengali Rasoi", R.drawable.fishtandoori, 4.6f, 2.5f, isVeg = false, priceInRs = 500.0, latitude = 37.422, longitude = -122.079),
-            Restaurant("Sichuan Delights", R.drawable.pulao, 4.0f, 6.0f, isVeg = false, priceInRs = 700.0, latitude = 37.419, longitude = -122.081),
-            Restaurant("Gujju Rasoi", R.drawable.gulabjamun, 4.3f, 3.2f, isVeg = true, priceInRs = 480.0, latitude = 37.417, longitude = -122.078)
+        Restaurant(
+            "Maa Kali Restaurant",
+            R.drawable.maakali,
+            3.4f,
+            1.2f,
+            isVeg = true,
+            priceInRs = 250.0,
+            latitude = 37.4220936,
+            longitude = -122.083922
+        ),
+        Restaurant(
+            "Aasha Biriyani House",
+            R.drawable.ashabriyani,
+            4.5f,
+            2.3f,
+            isVeg = false,
+            priceInRs = 350.0,
+            latitude = 37.4232000,
+            longitude = -122.081000
+        ),
+        Restaurant(
+            "Bharti Restaurant",
+            R.drawable.bhartires,
+            4.0f,
+            1.5f,
+            isVeg = true,
+            priceInRs = 200.0,
+            latitude = 37.4215000,
+            longitude = -122.080000
+        ),
+        Restaurant(
+            "Dolphin Restaurant",
+            R.drawable.dolphinres,
+            2.5f,
+            0.9f,
+            isVeg = false,
+            priceInRs = 400.0,
+            latitude = 37.4200000,
+            longitude = -122.085000
+        ),
+        Restaurant(
+            "The Nawaab Restaurant",
+            R.drawable.nawaabres,
+            5.0f,
+            3.0f,
+            isVeg = false,
+            priceInRs = 500.0,
+            latitude = 37.4190000,
+            longitude = -122.087000
+        ),
+        Restaurant(
+            "Amrita Restaurant",
+            R.drawable.amritares,
+            3.7f,
+            1.5f,
+            isVeg = true,
+            priceInRs = 550.0,
+            latitude = 37.4250000,
+            longitude = -122.082000
+        ),
+        Restaurant(
+            "Monginis Restaurant",
+            R.drawable.monginisres,
+            3.9f,
+            0.7f,
+            isVeg = false,
+            priceInRs = 400.0,
+            latitude = 37.4265000,
+            longitude = -122.086000
+        ),
+        Restaurant(
+            "Mio Amore the Cake Shop",
+            R.drawable.mioamore,
+            4.3f,
+            1.1f,
+            isVeg = true,
+            priceInRs = 450.0,
+            latitude = 37.4235000,
+            longitude = -122.083000
+        ),
+        Restaurant(
+            "Prasenjit Hotel",
+            R.drawable.maachbhaaat,
+            4.4f,
+            2.0f,
+            isVeg = true,
+            priceInRs = 550.0,
+            latitude = 37.4210000,
+            longitude = -122.088000
+        ),
+        Restaurant(
+            "MSR Cafe and Restaurant",
+            R.drawable.msrcafe,
+            4.8f,
+            0.8f,
+            isVeg = false,
+            priceInRs = 600.0,
+            latitude = 37.4222000,
+            longitude = -122.089500
+        ),
+        Restaurant(
+            "Mira Store",
+            R.drawable.koreanbibimbaap,
+            4.3f,
+            1.4f,
+            isVeg = true,
+            priceInRs = 660.0,
+            latitude = 37.4270000,
+            longitude = -122.084200
+        ),
+        Restaurant(
+            "Darjeeling Fast Food",
+            R.drawable.darjeeling,
+            4.7f,
+            1.6f,
+            isVeg = false,
+            priceInRs = 650.0,
+            latitude = 37.4288000,
+            longitude = -122.083500
+        ),
+        Restaurant(
+            "Abar Khabo Tiffin House",
+            R.drawable.abarkhabotiffin,
+            1.0f,
+            2.2f,
+            isVeg = false,
+            priceInRs = 550.0,
+            latitude = 37.423,
+            longitude = -122.083
+        ),
+        Restaurant(
+            "Spice Symphony",
+            R.drawable.spicessymphony,
+            4.5f,
+            1.8f,
+            isVeg = false,
+            priceInRs = 750.0,
+            latitude = 37.424,
+            longitude = -122.081
+        ),
+        Restaurant(
+            "Pure Veg Delights",
+            R.drawable.paneer,
+            4.2f,
+            3.5f,
+            isVeg = true,
+            priceInRs = 400.0,
+            latitude = 37.421,
+            longitude = -122.079
+        ),
+        Restaurant(
+            "Tandoori Junction",
+            R.drawable.tandoorijunction,
+            4.8f,
+            2.0f,
+            isVeg = false,
+            priceInRs = 900.0,
+            latitude = 37.419,
+            longitude = -122.084
+        ),
+        Restaurant(
+            "Biryani House",
+            R.drawable.chickenthali,
+            4.6f,
+            2.8f,
+            isVeg = false,
+            priceInRs = 650.0,
+            latitude = 37.420,
+            longitude = -122.082
+        ),
+        Restaurant(
+            "South Indian Flavors",
+            R.drawable.southindianflavors,
+            4.3f,
+            3.0f,
+            isVeg = true,
+            priceInRs = 500.0,
+            latitude = 37.417,
+            longitude = -122.080
+        ),
+        Restaurant(
+            "Dilli Chaat Bhandar",
+            R.drawable.salad,
+            4.0f,
+            1.5f,
+            isVeg = true,
+            priceInRs = 350.0,
+            latitude = 37.422,
+            longitude = -122.086
+        ),
+        Restaurant(
+            "Mughlai Darbar",
+            R.drawable.mughlaidarbar,
+            4.7f,
+            2.5f,
+            isVeg = false,
+            priceInRs = 850.0,
+            latitude = 37.418,
+            longitude = -122.078
+        ),
+        Restaurant(
+            "The Punjabi Dhaba",
+            R.drawable.spicessymphony,
+            4.4f,
+            3.2f,
+            isVeg = false,
+            priceInRs = 600.0,
+            latitude = 37.419,
+            longitude = -122.085
+        ),
+        Restaurant(
+            "Coastal Curry",
+            R.drawable.maachbhaaat,
+            4.5f,
+            2.7f,
+            isVeg = false,
+            priceInRs = 720.0,
+            latitude = 37.420,
+            longitude = -122.081
+        ),
+        Restaurant(
+            "Rajasthani Rasoi",
+            R.drawable.rajasthanifood,
+            4.1f,
+            3.8f,
+            isVeg = true,
+            priceInRs = 450.0,
+            latitude = 37.421,
+            longitude = -122.084
+        ),
+        Restaurant(
+            "The Grand Thali",
+            R.drawable.grandthali,
+            4.6f,
+            2.1f,
+            isVeg = true,
+            priceInRs = 550.0,
+            latitude = 37.423,
+            longitude = -122.080
+        ),
+        Restaurant(
+            "Hyderabadi Biryani Center",
+            R.drawable.muttonbiriyani,
+            4.9f,
+            1.9f,
+            isVeg = false,
+            priceInRs = 800.0,
+            latitude = 37.418,
+            longitude = -122.083
+        ),
+        Restaurant(
+            "Bengali Bhoj",
+            R.drawable.chickenawab,
+            4.3f,
+            3.4f,
+            isVeg = false,
+            priceInRs = 580.0,
+            latitude = 37.422,
+            longitude = -122.082
+        ),
+        Restaurant(
+            "Malabar Spices",
+            R.drawable.chickenthali,
+            4.2f,
+            2.9f,
+            isVeg = false,
+            priceInRs = 620.0,
+            latitude = 37.419,
+            longitude = -122.080
+        ),
+        Restaurant(
+            "Gujarati Swad",
+            R.drawable.rajasthanifood,
+            4.0f,
+            3.7f,
+            isVeg = true,
+            priceInRs = 400.0,
+            latitude = 37.420,
+            longitude = -122.085
+        ),
+        Restaurant(
+            "Udupi Sagar",
+            R.drawable.taco_supreme,
+            4.5f,
+            2.3f,
+            isVeg = true,
+            priceInRs = 520.0,
+            latitude = 37.421,
+            longitude = -122.079
+        ),
+        Restaurant(
+            "Chennai Dosa Corner",
+            R.drawable.southindianflavors,
+            4.3f,
+            2.6f,
+            isVeg = true,
+            priceInRs = 490.0,
+            latitude = 37.417,
+            longitude = -122.081
+        ),
+        Restaurant(
+            "Lucknowi Kebab",
+            R.drawable.muttonbiriyani,
+            4.8f,
+            1.7f,
+            isVeg = false,
+            priceInRs = 770.0,
+            latitude = 37.424,
+            longitude = -122.080
+        ),
+        Restaurant(
+            "Swad Punjab Da",
+            R.drawable.spicessymphony,
+            4.5f,
+            3.1f,
+            isVeg = false,
+            priceInRs = 750.0,
+            latitude = 37.418,
+            longitude = -122.082
+        ),
+        Restaurant(
+            "Flavors of China",
+            R.drawable.chickenmomos,
+            4.2f,
+            5.5f,
+            isVeg = false,
+            priceInRs = 620.0,
+            latitude = 37.419,
+            longitude = -122.084
+        ),
+        Restaurant(
+            "Dilli Chaat Bhandar",
+            R.drawable.dalparatha,
+            4.7f,
+            2.0f,
+            isVeg = true,
+            priceInRs = 250.0,
+            latitude = 37.421,
+            longitude = -122.086
+        ),
+        Restaurant(
+            "Ming's Dynasty",
+            R.drawable.chickenmomos,
+            4.3f,
+            3.8f,
+            isVeg = false,
+            priceInRs = 680.0,
+            latitude = 37.423,
+            longitude = -122.083
+        ),
+        Restaurant(
+            "Biryani Junction",
+            R.drawable.chickenawab,
+            4.6f,
+            4.0f,
+            isVeg = false,
+            priceInRs = 900.0,
+            latitude = 37.420,
+            longitude = -122.078
+        ),
+        Restaurant(
+            "Hakka House",
+            R.drawable.chickenhakkanoodles,
+            4.1f,
+            6.2f,
+            isVeg = false,
+            priceInRs = 580.0,
+            latitude = 37.424,
+            longitude = -122.085
+        ),
+        Restaurant(
+            "Rajdhani Thali",
+            R.drawable.rajasthanifood,
+            4.8f,
+            1.5f,
+            isVeg = true,
+            priceInRs = 650.0,
+            latitude = 37.422,
+            longitude = -122.081
+        ),
+        Restaurant(
+            "Dragon Wok",
+            R.drawable.nawaabres,
+            4.0f,
+            5.0f,
+            isVeg = false,
+            priceInRs = 720.0,
+            latitude = 37.418,
+            longitude = -122.080
+        ),
+        Restaurant(
+            "Udupi Sagar",
+            R.drawable.southindianflavors,
+            4.4f,
+            3.3f,
+            isVeg = true,
+            priceInRs = 300.0,
+            latitude = 37.417,
+            longitude = -122.079
+        ),
+        Restaurant(
+            "Golden Chopsticks",
+            R.drawable.dalparatha,
+            3.9f,
+            4.8f,
+            isVeg = false,
+            priceInRs = 550.0,
+            latitude = 37.419,
+            longitude = -122.083
+        ),
+        Restaurant(
+            "Tandoori Nights",
+            R.drawable.tandoorijunction,
+            4.5f,
+            2.9f,
+            isVeg = false,
+            priceInRs = 850.0,
+            latitude = 37.420,
+            longitude = -122.084
+        ),
+        Restaurant(
+            "Chowman Express",
+            R.drawable.msrcafe,
+            4.2f,
+            3.7f,
+            isVeg = false,
+            priceInRs = 600.0,
+            latitude = 37.423,
+            longitude = -122.080
+        ),
+        Restaurant(
+            "Bengali Rasoi",
+            R.drawable.fishtandoori,
+            4.6f,
+            2.5f,
+            isVeg = false,
+            priceInRs = 500.0,
+            latitude = 37.422,
+            longitude = -122.079
+        ),
+        Restaurant(
+            "Sichuan Delights",
+            R.drawable.pulao,
+            4.0f,
+            6.0f,
+            isVeg = false,
+            priceInRs = 700.0,
+            latitude = 37.419,
+            longitude = -122.081
+        ),
+        Restaurant(
+            "Gujju Rasoi",
+            R.drawable.gulabjamun,
+            4.3f,
+            3.2f,
+            isVeg = true,
+            priceInRs = 480.0,
+            latitude = 37.417,
+            longitude = -122.078
+        )
+        // Add more restaurants with latitude and longitude
     )
 
-    // Get the user's current location
     LaunchedEffect(Unit) {
-        getCurrentLocation(context) { loc ->
-            userLocation = loc
-        }
+        getCurrentLocation(context) { loc -> userLocation = loc }
     }
 
-    // Filter restaurants by location
-    val filteredRestaurantsByLocation = filterRestaurantsByLocation(userLocation, restaurantList, maxDistance = 7.0f)
+    val filteredRestaurantsByLocation =
+        filterRestaurantsByLocation(userLocation, restaurantList, maxDistance = 7.0f)
 
-    // Combine location-based filtering with existing filters
-    val filteredAndSortedRestaurantList by remember(searchText, minRating, maxPrice, onlyVeg, within7km, sortOption, userLocation) {
+    val filteredAndSortedRestaurantList by remember(
+        searchText, minRating, maxPrice, onlyVeg, within7km, sortOption, userLocation
+    ) {
         mutableStateOf(
             filteredRestaurantsByLocation
                 .filter {
@@ -1124,21 +1627,18 @@ fun HomeScreen(
 
     RequestLocationPermission(
         fusedLocationClient = fusedLocationClient,
-        onLocationReceived = { loc ->
-            location = loc
-        }
+        onLocationReceived = { loc -> location = loc }
     )
 
     LaunchedEffect(location) {
         location?.let {
             val geocoder = Geocoder(context, Locale.getDefault())
-            try {
-                val addressList = withContext(Dispatchers.IO) {
+            fetchedAddress = try {
+                withContext(Dispatchers.IO) {
                     geocoder.getFromLocation(it.latitude, it.longitude, 1)
-                }
-                fetchedAddress = addressList?.firstOrNull()?.getAddressLine(0) ?: "Address not found"
+                }?.firstOrNull()?.getAddressLine(0) ?: "Address not found"
             } catch (e: Exception) {
-                fetchedAddress = "Error fetching address"
+                "Error fetching address"
             }
         }
     }
@@ -1149,95 +1649,115 @@ fun HomeScreen(
         }
     } else {
         Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Snapbites") },
-                    actions = {
-                        IconButton(onClick = { navController.navigate("cart") }) {
-                            BadgedBox(
-                                badge = {
-                                    if (cartItems.isNotEmpty()) Badge {
-                                        Text(cartItems.size.toString())
-                                    }
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ShoppingCart,
-                                    contentDescription = "Cart"
-                                )
-                            }
-                        }
-                    }
-                )
-            },
             content = { paddingValues ->
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFFE8F5E9))
-                        .padding(paddingValues)
-                ) {
-                    item {
-                        DeliveryHeader(
-                            address = address,
-                            userLocation = userLocation,
-                            onManualAddress = { navController.navigate("manual_address") },
-                            onAutomaticFetch = { locationViewModel.fetchLocation() }
-                        )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFE8F5E9))
+                            .padding(paddingValues)
+                    ) {
 
+                        item {
+                            DeliveryHeader(
+                                address = address,
+                                userLocation = userLocation,
+                                onAutomaticFetch = { locationViewModel.fetchLocation() },
+                                onCartClick = { navController.navigate("cart") } // pass the cart action here
+                            )
+                        }
+
+                        item {
+                            if (showCoupon) {
+                                CouponBanner(onOrderNowClick = {
+                                    showCoupon = false
+                                    navController.navigate("restaurants")
+                                })
+                            }
+                        }
+
+                        item {
+                            OutlinedTextField(
+                                value = searchText,
+                                onValueChange = { searchText = it },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = "Search Icon",
+                                        tint = Color(0xFF4CAF50) // Green
+                                    )
+                                },
+                                placeholder = { Text("Search food or restaurants") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                colors = TextFieldDefaults.outlinedTextFieldColors(
+                                    containerColor = Color.White,
+                                    focusedBorderColor = Color(0xFF4CAF50),
+                                    unfocusedBorderColor = Color(0xFF4CAF50),
+                                    cursorColor = Color(0xFF4CAF50)
+                                )
+                            )
+                        }
+
+
+                        item {
+                            SortMenu(
+                                sortOption = sortOption,
+                                onSortOptionSelected = { sortOption = it }
+                            )
+                        }
+
+                        item { FoodCategories(navController) }
+                        item { HighestRatingSection(searchText, navController, cartViewModel) }
+
+                        items(filteredAndSortedRestaurantList) { restaurant ->
+                            RestaurantCard(restaurant) {
+                                navController.navigate("details/${restaurant.name}")
+                            }
+                        }
                     }
 
-                    item {
-                        CouponBanner(onOrderNowClick = { navController.navigate("restaurants") })
-                    }
-
-                    item {
-                        SearchBar(
-                            searchText = searchText,
-                            onSearchTextChanged = { searchText = it },
-                            onFilterClick = { showFilterDialog = true }
-                        )
-                    }
-
-                    item {
-                        SortMenu(
-                            sortOption = sortOption,
-                            onSortOptionSelected = { selectedOption ->
-                                sortOption = selectedOption
+                    if (showManualDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showManualDialog = false },
+                            title = { Text("Enter Address Manually") },
+                            text = {
+                                ManualAddressInput { manualAddress ->
+                                    locationViewModel.setManualAddress(manualAddress)
+                                    showManualDialog = false
+                                }
+                            },
+                            confirmButton = {},
+                            dismissButton = {
+                                TextButton(onClick = {
+                                    showManualDialog = false
+                                }) { Text("Cancel") }
                             }
                         )
                     }
 
-                    item { FoodCategories(navController) }
-                    item { HighestRatingSection(searchText, navController, cartViewModel) }
-
-                    items(filteredAndSortedRestaurantList) { restaurant ->
-                        RestaurantCard(restaurant) { selectedRestaurant ->
-                            navController.navigate("details/${selectedRestaurant.name}")
-                        }
+                    if (showFilterDialog) {
+                        FilterDialog(
+                            minRating = minRating,
+                            maxPrice = maxPrice,
+                            onlyVeg = onlyVeg,
+                            within7km = within7km,
+                            sortOption = sortOption,
+                            onMinRatingChange = { minRating = it },
+                            onMaxPriceChange = { maxPrice = it },
+                            onOnlyVegChange = { onlyVeg = it },
+                            onWithin7kmChange = { within7km = it },
+                            onSortOptionChange = { sortOption = it },
+                            onDismiss = { showFilterDialog = false }
+                        )
                     }
                 }
             }
         )
-
-        if (showFilterDialog) {
-            FilterDialog(
-                minRating = minRating,
-                maxPrice = maxPrice,
-                onlyVeg = onlyVeg,
-                within7km = within7km,
-                sortOption = sortOption,
-                onMinRatingChange = { minRating = it },
-                onMaxPriceChange = { maxPrice = it },
-                onOnlyVegChange = { onlyVeg = it },
-                onWithin7kmChange = { within7km = it },
-                onSortOptionChange = { sortOption = it },
-                onDismiss = { showFilterDialog = false }
-            )
-        }
     }
 }
-// Function to get the current location
+        // Function to get the current location
 fun getCurrentLocation(context: Context, onLocationReceived: (Location?) -> Unit) {
     val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
     if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
@@ -1449,48 +1969,75 @@ fun RestaurantCard(
 ) {
     Card(
         modifier = Modifier
-            .padding(8.dp)
-            .clickable { onClick(restaurant) }
+            .padding(12.dp)
+            .fillMaxWidth()
+            .clickable(onClick = { onClick(restaurant) })
+            .shadow(8.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xCCFFFFFF))
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFFC8E6C9)) // Light green background for the card
-        ) {
-            Column {
-                // Display restaurant image using the drawable resource ID
-                Image(
-                    painter = painterResource(id = restaurant.imageResId),
-                    contentDescription = restaurant.name,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp),
-                    contentScale = ContentScale.Crop
+        Box {
+            // 1) Hero image with gradient overlay
+            Image(
+                painter = painterResource(restaurant.imageResId),
+                contentDescription = restaurant.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .height(180.dp)
+                    .fillMaxWidth()
+            )
+            Box(Modifier
+                .matchParentSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)),
+                        startY = 0f, endY = 400f
+                    )
                 )
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF4CAF50)) // Dark green background for text section
-                        .padding(8.dp) // Padding for spacing
-                ) {
-                    Text(
-                        text = restaurant.name,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Color.White // White text for contrast
-                    )
-                    Text(
-                        text = "Rating: ${restaurant.rating}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "Distance: ${restaurant.distance} km",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White
-                    )
-                }
+            )
+            // 2) Text overlay
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp)
+            ) {
+                Text(restaurant.name, style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                Spacer(Modifier.height(4.dp))
+                Text("${restaurant.rating} ★   ${restaurant.distance} km",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White)
             }
         }
+    }
+}
+@Composable
+fun AnimatedAddButton(onClick: () -> Unit) {
+    var pressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(targetValue = if (pressed) 0.9f else 1f, label = "scaleAnim")
+
+    // This effect runs when `pressed` becomes true
+    LaunchedEffect(pressed) {
+        if (pressed) {
+            delay(100)
+            pressed = false
+        }
+    }
+
+    Button(
+        onClick = {
+            pressed = true
+            onClick()
+        },
+        modifier = Modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .padding(8.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+        shape = RoundedCornerShape(50)
+    ) {
+        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
     }
 }
 
@@ -1499,7 +2046,6 @@ fun RestaurantCard(
 fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
     val cartItems by cartViewModel.cartItems.collectAsState()
     val discountPercentage by cartViewModel.discountPercentage.collectAsState()
-
     val context = LocalContext.current
 
     val originalTotal = cartItems.sumOf { it.priceInRs }
@@ -1550,8 +2096,9 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
 
             Button(
                 onClick = {
-                    Toast.makeText(context, "Order placed successfully", Toast.LENGTH_SHORT).show()
-                    cartViewModel.clearCart()
+                    cartViewModel.placeOrder()              // ← save into history + clear cart
+                    Toast.makeText(context, "Order placed!", Toast.LENGTH_SHORT).show()
+                    navController.navigate("order")       // ← go to your Order screen
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AA4F))
@@ -1561,7 +2108,6 @@ fun CartScreen(navController: NavController, cartViewModel: CartViewModel) {
         }
     }
 }
-
 
 @Composable
 fun HighestRatingSection(
@@ -1728,42 +2274,57 @@ fun CouponBanner(onOrderNowClick: () -> Unit) {
 fun DeliveryHeader(
     address: String,
     userLocation: Location?, // Nullable user location
-    onManualAddress: () -> Unit,
-    onAutomaticFetch: () -> Unit
+    onAutomaticFetch: () -> Unit,
+    onCartClick: () -> Unit // Add this to handle cart navigation
 ) {
     var showDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
-            .clickable { showDialog = true },
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = Icons.Default.Map,
-            contentDescription = "User",
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(15.dp))
-        Column {
-            Text(text = "Deliver To", style = MaterialTheme.typography.labelSmall)
-
-            Box(
-                modifier = Modifier
-                    .border(BorderStroke(2.dp, Color.Green), RoundedCornerShape(4.dp))
-                    .padding(8.dp)
-            ) {
-                Text(text = address, style = MaterialTheme.typography.titleMedium)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clickable { showDialog = true }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Place,
+                contentDescription = "Location",
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Column {
+                Text(text = "Deliver To", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = address,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.Black,
+                    modifier = Modifier
+                        .border(BorderStroke(1.dp, Color(0xFF4CAF50)), RoundedCornerShape(4.dp))
+                        .padding(4.dp)
+                )
+                Text(
+                    text = userLocation?.let {
+                        "Location: %.4f, %.4f".format(it.latitude, it.longitude)
+                    } ?: "Fetching your location...",
+                    fontSize = 12.sp,
+                    color = if (userLocation != null) Color.Black else Color.Gray
+                )
             }
+        }
 
-            // Show user location or a fallback message
-            Text(
-                text = userLocation?.let {
-                    "Your Location: ${"%.4f".format(it.latitude)}, ${"%.4f".format(it.longitude)}"
-                } ?: "Fetching your location...",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (userLocation != null) Color.Black else Color.Gray
+        IconButton(onClick = { onCartClick() }) {
+            Icon(
+                imageVector = Icons.Default.ShoppingCart,
+                contentDescription = "Cart",
+                tint = Color.Black
             )
         }
     }
@@ -1773,7 +2334,8 @@ fun DeliveryHeader(
             onDismiss = { showDialog = false },
             onManualAddress = {
                 showDialog = false
-                onManualAddress()
+                val intent = android.content.Intent(context, MapsActivity::class.java)
+                context.startActivity(intent)
             },
             onAutomaticFetch = {
                 showDialog = false
@@ -1782,6 +2344,7 @@ fun DeliveryHeader(
         )
     }
 }
+
 
 @Composable
 fun AddressOptionDialog(
@@ -2022,56 +2585,3 @@ fun isValidEmail(email: String): Boolean {
     return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
 }
 
-class LocationViewModel(application: Application) : AndroidViewModel(application) {
-    private val fusedLocationClient: FusedLocationProviderClient =
-        LocationServices.getFusedLocationProviderClient(application)
-
-    private val _address = MutableStateFlow("Fetching location...")
-    val address: StateFlow<String> = _address
-
-    private val _location = MutableStateFlow<Location?>(null)
-    val location: StateFlow<Location?> = _location
-
-    private val _locationError = MutableStateFlow<String?>(null)
-    val locationError: StateFlow<String?> = _locationError
-
-    fun fetchLocation(context: Context) {
-        // Check for permission
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            getLocation()
-        } else {
-            _locationError.value = "Location permission not granted"
-            // Optionally, inform the UI to request permissions
-        }
-    }
-    fun fetchLocation() {
-        try {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null) {
-                    _location.value = location
-                    viewModelScope.launch {
-                        _address.value = getAddressFromLocation(location)
-                    }
-                } else {
-                    _locationError.value = "Location not available"
-                }
-            }.addOnFailureListener { exception ->
-                _locationError.value = "Location error: ${exception.message}"
-            }
-        } catch (e: SecurityException) {
-            _locationError.value = "Location permission required"
-        }
-    }
-
-    private suspend fun getAddressFromLocation(location: Location): String {
-        val geocoder = Geocoder(getApplication(), Locale.getDefault())
-        return try {
-            val addressList = withContext(Dispatchers.IO) {
-                geocoder.getFromLocation(location.latitude, location.longitude, 1)
-            }
-            addressList?.firstOrNull()?.getAddressLine(0) ?: "Address not found"
-        } catch (e: Exception) {
-            "Error fetching address"
-        }
-    }
-}

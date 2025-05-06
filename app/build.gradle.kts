@@ -95,6 +95,12 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.firebase.auth.ktx)
+    implementation("com.google.accompanist:accompanist-pager:0.34.0")
+    implementation("com.google.accompanist:accompanist-pager-indicators:0.34.0")
+    implementation("com.google.maps.android:maps-compose:2.11.4") // or latest
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+
+
 
     // Unit and UI testing dependencies
     testImplementation(libs.junit)
